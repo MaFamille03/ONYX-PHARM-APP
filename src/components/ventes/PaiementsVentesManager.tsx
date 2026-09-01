@@ -1,0 +1,282 @@
+"use client";
+
+import { useEffect, useState, useCallback } from "react";
+import { CreditCard } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+import { Modal } from "@/components/ui/Modal";
+import { SelectField } from "@/components/ui/FormControls";
+import { PrimaryButton } from "@/components/ui/Buttons";
+import { InlineBanner } from "@/components/ui/Badges";
+
+type CreanceRow = {
+  vente_id: string;
+  reference: string;
+  client_id: string | null;
+  montant_total: number;
+  montant_paye: number;
+  creance: number;
+};
+
+type PaiementRow = {
+  id: string;
+  montant: number;
+  mode_paiement: string;
+  date_paiement: string;
+  ventes: { reference: string; clients: { nom: string } | null } | null;
+};
+
+export function PaiementsVentesManager() {
+  const supabase = createClient();
+  const [creances, setCreances] = useState<(CreanceRow & { client_nom: string })[]>(
+    []
+  );
+  const [paiements, setPaiements] = useState<PaiementRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const [modalVente, setModalVente] = useState<
+    (CreanceRow & { client_nom: string }) | null
+  >(null);
+  const [montant, setMontant] = useState("");
+  const [mode, setMode] = useState("Espèces");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const [creancesRes, paiementsRes] = await Promise.all([
+      supabase
+        .from("v_creances_clients")
+        .select("vente_id, reference, client_id, montant_total, montant_paye, creance"),
+      supabase
+        .from("paiements_ventes")
+        .select("id, montant, mode_paiement, date_paiement, ventes(reference, clients(nom))")
+        .order("date_paiement", { ascending: false })
+        .limit(50),
+    ]);
+
+    if (creancesRes.data) {
+      const clientIds = Array.from(
+        new Set(
+          creancesRes.data
+            .map((c) => c.client_id)
+            .filter((id): id is string => Boolean(id))
+        )
+      );
+      const { data: clients } = await supabase
+        .from("clients")
+        .select("id, nom")
+        .in("id", clientIds);
+      const nomsMap = new Map((clients ?? []).map((c) => [c.id, c.nom]));
+      setCreances(
+        creancesRes.data.map((c) => ({
+          ...c,
+          client_nom: c.client_id
+            ? nomsMap.get(c.client_id) ?? "—"
+            : "Client de passage",
+        }))
+      );
+    }
+    if (paiementsRes.data)
+      setPaiements(paiementsRes.data as unknown as PaiementRow[]);
+    setLoading(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  function ouvrirPaiement(creance: CreanceRow & { client_nom: string }) {
+    setModalVente(creance);
+    setMontant(String(creance.creance));
+    setMode("Espèces");
+    setError(null);
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!modalVente) return;
+    const val = Number(montant);
+    if (!val || val <= 0) {
+      setError("Montant invalide.");
+      return;
+    }
+    if (val > modalVente.creance) {
+      setError(
+        `Le montant dépasse la créance restante (${modalVente.creance.toLocaleString("fr-FR")} FCFA).`
+      );
+      return;
+    }
+
+    setSaving(true);
+    setError(null);
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    const { error } = await supabase.from("paiements_ventes").insert({
+      vente_id: modalVente.vente_id,
+      montant: val,
+      mode_paiement: mode,
+      created_by: user?.id ?? null,
+    });
+
+    setSaving(false);
+    if (error) {
+      setError("Impossible d'enregistrer ce paiement.");
+      return;
+    }
+    setModalVente(null);
+    load();
+  }
+
+  return (
+    <div>
+      <h1 className="text-xl font-semibold text-onyx-900 sm:text-2xl">
+        Paiements de ventes
+      </h1>
+      <p className="mt-1 text-sm text-onyx-500">
+        Créances clients en cours et historique des règlements.
+      </p>
+
+      {loading ? (
+        <p className="py-10 text-center text-sm text-onyx-400">
+          Chargement...
+        </p>
+      ) : (
+        <>
+          <h2 className="mt-6 text-sm font-semibold text-onyx-800">
+            Créances en cours ({creances.length})
+          </h2>
+          {creances.length === 0 ? (
+            <p className="mt-2 text-sm text-onyx-400">
+              Aucune créance client en cours.
+            </p>
+          ) : (
+            <div className="mt-2 space-y-2">
+              {creances.map((c) => (
+                <div
+                  key={c.vente_id}
+                  className="flex items-center justify-between rounded-lg border border-onyx-100 bg-white px-4 py-3"
+                >
+                  <div>
+                    <p className="text-sm font-medium text-onyx-800">
+                      {c.reference} — {c.client_nom}
+                    </p>
+                    <p className="text-xs text-red-500">
+                      Reste dû : {c.creance.toLocaleString("fr-FR")} FCFA
+                    </p>
+                  </div>
+                  <PrimaryButton
+                    onClick={() => ouvrirPaiement(c)}
+                    className="min-h-0 px-3 py-1.5 text-xs"
+                  >
+                    <CreditCard size={14} />
+                    Encaisser
+                  </PrimaryButton>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <h2 className="mt-8 text-sm font-semibold text-onyx-800">
+            Historique des paiements
+          </h2>
+          {paiements.length === 0 ? (
+            <p className="mt-2 text-sm text-onyx-400">
+              Aucun paiement enregistré.
+            </p>
+          ) : (
+            <div className="mt-2 overflow-hidden rounded-xl border border-onyx-100 bg-white">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-onyx-100 bg-onyx-50/50 text-left text-xs font-medium uppercase tracking-wide text-onyx-400">
+                    <th className="px-4 py-3">Date</th>
+                    <th className="px-4 py-3">Vente</th>
+                    <th className="px-4 py-3">Client</th>
+                    <th className="px-4 py-3">Mode</th>
+                    <th className="px-4 py-3 text-right">Montant</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paiements.map((p) => (
+                    <tr
+                      key={p.id}
+                      className="border-b border-onyx-50 last:border-0"
+                    >
+                      <td className="px-4 py-2.5 text-onyx-500">
+                        {new Date(p.date_paiement).toLocaleDateString("fr-FR")}
+                      </td>
+                      <td className="px-4 py-2.5 text-onyx-700">
+                        {p.ventes?.reference}
+                      </td>
+                      <td className="px-4 py-2.5 text-onyx-500">
+                        {p.ventes?.clients?.nom ?? "Client de passage"}
+                      </td>
+                      <td className="px-4 py-2.5 text-onyx-500">
+                        {p.mode_paiement}
+                      </td>
+                      <td className="px-4 py-2.5 text-right font-medium text-onyx-800">
+                        {p.montant.toLocaleString("fr-FR")}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
+      )}
+
+      {modalVente && (
+        <Modal
+          title={`Paiement — ${modalVente.reference}`}
+          onClose={() => setModalVente(null)}
+        >
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {error && <InlineBanner message={error} />}
+            <p className="text-sm text-onyx-500">
+              Client :{" "}
+              <span className="font-medium text-onyx-800">
+                {modalVente.client_nom}
+              </span>
+              <br />
+              Reste dû :{" "}
+              <span className="font-medium text-onyx-800">
+                {modalVente.creance.toLocaleString("fr-FR")} FCFA
+              </span>
+            </p>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-onyx-700">
+                Montant
+              </label>
+              <input
+                type="number"
+                min="1"
+                step="1"
+                required
+                value={montant}
+                onChange={(e) => setMontant(e.target.value)}
+                className="w-full rounded-lg border border-onyx-200 px-3.5 py-2.5 text-[15px] outline-none focus:border-accent-400 focus:ring-2 focus:ring-accent-100"
+              />
+            </div>
+            <SelectField
+              id="mode-paiement-creance"
+              label="Mode de paiement"
+              value={mode}
+              onChange={(e) => setMode(e.target.value)}
+            >
+              <option value="Espèces">Espèces</option>
+              <option value="Banque">Banque</option>
+              <option value="Mobile Money">Mobile Money</option>
+              <option value="Autre">Autre</option>
+            </SelectField>
+            <PrimaryButton type="submit" loading={saving} className="w-full">
+              Enregistrer le paiement
+            </PrimaryButton>
+          </form>
+        </Modal>
+      )}
+    </div>
+  );
+}
