@@ -142,7 +142,8 @@ function RapportStock() {
         const parEmplacement: Record<string, number> = {};
         let total = 0;
         for (const s of a.stocks) {
-          parEmplacement[s.emplacement_id] = s.quantite;
+          parEmplacement[s.emplacement_id] =
+            (parEmplacement[s.emplacement_id] || 0) + s.quantite;
           total += s.quantite;
         }
         return {

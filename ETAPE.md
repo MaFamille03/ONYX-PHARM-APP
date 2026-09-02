@@ -1,6 +1,6 @@
 # Suivi du projet ONYX PHARM
 
-## Étape actuelle : 14 — Réparation des comptes sans profil (livrée)
+## Étape actuelle : 17 — Conteneurs remplacent complètement les Achats (livrée)
 
 Ce projet est livré de façon **cumulative** : chaque nouveau zip
 (`onyx-pharm-app-etape-N`) contient l'intégralité du code depuis l'étape 1,

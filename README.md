@@ -783,3 +783,169 @@ est bloquée (violation de contrainte, pas un problème de droits).
 2. Si ça échoue encore : ouvrez la console (**F12**), regardez le message
    `[ONYX PHARM] Erreur Supabase`, et partagez-moi le `code` exact affiché
    — avec cette information, la cause sera identifiée avec certitude
+
+---
+
+## ÉTAPE 15 — Conteneurs, étape 1/5 : fondations
+
+Première étape du chantier "gestion par conteneur" : le stock est
+désormais structuré, en coulisses, comme une somme de lots d'entrée
+(conteneurs), chacun avec son propre prix d'achat global. **Rien ne
+change encore à l'écran** — c'est une restructuration de fondation.
+
+### Ce qui a été fait
+
+- Nouvelle table **Conteneurs** (code, fournisseur, date d'arrivée,
+  montant d'achat global, statut, observation)
+- Un conteneur technique **"Stock Initial"** est créé automatiquement
+  et regroupe tout le stock existant avant ce changement
+- Le stock est maintenant suivi par **(article, emplacement, conteneur)**
+  au lieu de (article, emplacement) — mais le **total affiché reste
+  identique** partout dans l'application (Articles, Stocks, Rapports,
+  Tableau de bord, Alertes)
+- Toutes les fonctions qui touchent au stock (ventes, achats, transferts,
+  retours, inventaires, annulations) ont été mises à jour pour
+  fonctionner avec cette nouvelle structure, sans rien casser
+- Nouvelle page **Stock > Conteneurs** (lecture seule pour l'instant) pour
+  vérifier que "Stock Initial" existe bien et regroupe tout le stock
+
+### Important — comportement transitoire
+
+Tant que l'étape 2 (arrivée de nouveaux conteneurs) n'est pas livrée,
+**tout le stock réel continue de vivre dans "Stock Initial"** — c'est
+normal et volontaire. Les vérifications de disponibilité (ventes,
+transferts...) tiennent déjà compte du total tous conteneurs confondus,
+mais les sorties de stock ciblent encore Stock Initial par défaut. La
+répartition intelligente entre plusieurs conteneurs (FIFO) arrive à
+l'étape 3.
+
+### Procédure
+
+1. Dézippez ce zip par-dessus votre dossier de travail
+2. GitHub Desktop → commit (`Étape 15 : conteneurs — fondations`) → Push
+3. **Action Supabase requise** : exécutez `0015_conteneurs.sql` dans le
+   SQL Editor (migration volumineuse, c'est normal — laissez-la aller
+   jusqu'au bout)
+
+### À tester
+
+1. Allez dans **Stock > Conteneurs** : vous devez voir le conteneur
+   "Stock Initial", avec le stock total qui correspond à ce que vous avez
+   déjà en base
+2. Vérifiez que **Stock > Articles** et **Stock > Stocks** affichent
+   toujours les mêmes quantités qu'avant (rien ne doit avoir changé à
+   l'écran)
+3. Testez un ajustement de stock, un transfert, une vente : tout doit
+   continuer à fonctionner normalement
+4. Créez un nouvel article avec un stock initial : vérifiez qu'il
+   apparaît bien rattaché au conteneur Stock Initial
+
+---
+
+## ÉTAPE 16 — Conteneurs, étape 2/5 : entrée de marchandise
+
+Vous pouvez maintenant créer un conteneur réel, avec un seul montant
+d'achat global et sans aucun prix par article.
+
+### Ce qui a été fait
+
+- **Stock > Conteneurs > Nouveau conteneur** : formulaire avec code
+  (généré automatiquement, modifiable), fournisseur, date d'arrivée,
+  montant d'achat global, observation
+- **Ajout des articles de deux façons, combinables** :
+  - **Import Excel** (méthode recommandée) : modèle téléchargeable avec
+    les colonnes habituelles + Quantité + Emplacement ; si un article du
+    fichier n'existe pas encore dans le catalogue, il est **créé
+    automatiquement** ; s'il existe déjà, sa quantité est simplement
+    ajoutée au conteneur
+  - **Ajout manuel** : sélection d'un article déjà existant, quantité,
+    emplacement — pour les petits conteneurs ou les compléments rapides
+- La création du conteneur (articles + stock) se fait en **une seule
+  opération atomique** : si quelque chose échoue, rien n'est
+  partiellement créé
+
+### Procédure
+
+1. Dézippez ce zip par-dessus votre dossier de travail
+2. GitHub Desktop → commit (`Étape conteneurs 2/5 : entrée de
+   marchandise`) → Push
+3. **Action Supabase requise** : exécutez `0016_creation_conteneur.sql`
+   dans le SQL Editor
+
+### À tester
+
+1. Allez dans **Stock > Conteneurs > Nouveau conteneur**
+2. Renseignez un montant d'achat global, puis testez l'import Excel avec
+   quelques lignes (mélangez un article déjà existant et un nouveau)
+3. Ajoutez aussi une ligne manuellement
+4. Créez le conteneur, vérifiez qu'il apparaît dans la liste avec le bon
+   stock restant
+5. Vérifiez dans **Stock > Articles** et **Stock > Stocks** que les
+   quantités sont bien remontées dans le total affiché
+6. Vérifiez dans **Stock > Mouvements** que chaque entrée est bien
+   journalisée, référencée par le code du conteneur
+
+---
+
+## ÉTAPE 17 — Les Conteneurs remplacent complètement les Achats
+
+Changement majeur : le module **Achats** (menu, pages) est retiré — les
+**Conteneurs** sont désormais l'unique porte d'entrée du stock, avec leur
+propre suivi financier, entièrement indépendant des ventes.
+
+**Rien n'est supprimé en base** : les anciennes données d'achats restent
+disponibles (aucune perte), simplement plus utilisées pour de nouvelles
+opérations.
+
+### Ce qui a changé
+
+- **Menu Achats retiré** (Achats, Réceptions, Paiements, Retours) — tout
+  se fait désormais depuis **Stock > Conteneurs**
+- **Prix d'achat du conteneur devenu optionnel** — un conteneur peut être
+  créé sans aucun montant renseigné
+- **Chaque conteneur a désormais son propre statut de paiement**
+  (Validé → Partiellement payé → Payé), avec possibilité d'enregistrer des
+  paiements directement depuis sa fiche détail (cliquez sur un conteneur
+  dans la liste) — **sans aucun rapport avec les ventes**
+- Chaque paiement de conteneur crée **automatiquement** le décaissement
+  correspondant, exactement comme avant pour les achats
+- **Tiers > Dettes** affiche désormais les dettes par conteneur
+- **Sorties de stock en FIFO multi-conteneurs** : une vente ou un
+  transfert peut désormais puiser automatiquement dans **plusieurs
+  conteneurs** si le plus ancien ne suffit pas — totalement invisible pour
+  vous, ça fonctionne tout seul
+- **Ciblage manuel possible** : sur chaque ligne de vente, un sélecteur
+  "Conteneur (optionnel)" apparaît dès qu'un article a du stock dans
+  plusieurs conteneurs — utile quand un client demande spécifiquement la
+  nouvelle version d'un article alors que l'ancienne est encore
+  disponible. Laissé sur "Automatique", le système prend le plus ancien
+  en priorité
+- **Annulation d'une vente validée** restitue désormais le stock
+  exactement aux conteneurs d'où il avait été prélevé (et non plus
+  systématiquement à Stock Initial)
+
+### Procédure
+
+1. Dézippez ce zip par-dessus votre dossier de travail
+2. GitHub Desktop → commit (`Étape 17 : conteneurs remplacent les
+   achats`) → Push
+3. **Action Supabase requise** : exécutez `0017_conteneurs_paiements_fifo.sql`
+   dans le SQL Editor
+
+### À tester
+
+1. Créez un conteneur **sans montant d'achat** : vérifiez qu'il se crée
+   normalement
+2. Créez un conteneur **avec montant** contenant un article déjà présent
+   dans un autre conteneur (ex : Stock Initial)
+3. Créez une vente sur cet article avec une quantité qui dépasse ce qu'il
+   y a dans le conteneur le plus ancien : vérifiez que la vente se valide
+   quand même (elle doit puiser automatiquement dans les deux conteneurs)
+4. Recommencez une vente sur ce même article, mais cette fois choisissez
+   explicitement un conteneur dans le sélecteur "Conteneur (optionnel)" :
+   vérifiez que seul ce conteneur est décrémenté
+5. Annulez une vente validée : vérifiez que le stock revient bien dans
+   les bons conteneurs (regardez le détail du conteneur concerné)
+6. Enregistrez un paiement sur un conteneur : vérifiez qu'il apparaît
+   automatiquement dans **Caisse > Décaissements** et dans **Tiers >
+   Dettes**

@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { logSupabaseError } from "@/lib/errors";
+import { getStockInitialId } from "@/lib/conteneurs";
 import { Modal } from "@/components/ui/Modal";
 import { FormField } from "@/components/auth/FormField";
 import { TextareaField, SelectField } from "@/components/ui/FormControls";
@@ -152,44 +153,49 @@ export function ArticleFormModal({
         ([, val]) => Number(val) > 0
       );
 
-      for (const [emplacementId, valeur] of entrees) {
-        const quantite = Number(valeur);
+      if (entrees.length > 0) {
+        const stockInitialId = await getStockInitialId(supabase);
 
-        const { error: stockError } = await supabase.from("stocks").upsert(
-          {
-            article_id: created.id,
-            emplacement_id: emplacementId,
-            quantite,
-          },
-          { onConflict: "article_id,emplacement_id" }
-        );
+        for (const [emplacementId, valeur] of entrees) {
+          const quantite = Number(valeur);
 
-        if (stockError) {
-          logSupabaseError(
-            { table: "stocks", operation: "upsert (stock initial)" },
-            stockError,
-            ""
+          const { error: stockError } = await supabase.from("stocks").upsert(
+            {
+              article_id: created.id,
+              emplacement_id: emplacementId,
+              conteneur_id: stockInitialId,
+              quantite,
+            },
+            { onConflict: "article_id,emplacement_id,conteneur_id" }
           );
-        }
 
-        const { error: mouvementError } = await supabase
-          .from("mouvements_stock")
-          .insert({
-            article_id: created.id,
-            emplacement_id: emplacementId,
-            type: "autre_entree",
-            quantite,
-            document_type: "creation_article",
-            observation: "Stock initial à la création de l'article",
-            created_by: user?.id ?? null,
-          });
+          if (stockError) {
+            logSupabaseError(
+              { table: "stocks", operation: "upsert (stock initial)" },
+              stockError,
+              ""
+            );
+          }
 
-        if (mouvementError) {
-          logSupabaseError(
-            { table: "mouvements_stock", operation: "insert (stock initial)" },
-            mouvementError,
-            ""
-          );
+          const { error: mouvementError } = await supabase
+            .from("mouvements_stock")
+            .insert({
+              article_id: created.id,
+              emplacement_id: emplacementId,
+              type: "autre_entree",
+              quantite,
+              document_type: "creation_article",
+              observation: "Stock initial à la création de l'article",
+              created_by: user?.id ?? null,
+            });
+
+          if (mouvementError) {
+            logSupabaseError(
+              { table: "mouvements_stock", operation: "insert (stock initial)" },
+              mouvementError,
+              ""
+            );
+          }
         }
       }
     }

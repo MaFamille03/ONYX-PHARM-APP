@@ -9,6 +9,7 @@ import { SelectField } from "@/components/ui/FormControls";
 import { PrimaryButton, SecondaryButton } from "@/components/ui/Buttons";
 import { InlineBanner, StatutBadge } from "@/components/ui/Badges";
 import { ClientSelect } from "@/components/tiers/ClientSelect";
+import { ConteneurLigneSelect } from "@/components/conteneurs/ConteneurLigneSelect";
 import { useReferenceData } from "@/lib/hooks/useReferenceData";
 import { SecondPasswordModal } from "@/components/securite/SecondPasswordModal";
 import { DocumentImprimable } from "@/components/documents/DocumentImprimable";
@@ -38,6 +39,7 @@ type LigneBrouillon = {
   prix_vente_reel: string;
   remise: string;
   emplacement_id: string;
+  conteneur_id: string;
 };
 
 export function VentesManager() {
@@ -212,6 +214,7 @@ function NouvelleVente({
         prix_vente_reel: "",
         remise: "0",
         emplacement_id: emplacementsActifs[0]?.id ?? "",
+        conteneur_id: "",
       },
     ]);
   }
@@ -331,6 +334,7 @@ function NouvelleVente({
           Number(l.prix_vente_conseille_reference) || 0,
         prix_vente_reel: Number(l.prix_vente_reel) || 0,
         remise: Number(l.remise) || 0,
+        conteneur_id: l.conteneur_id || null,
       }))
     );
 
@@ -514,6 +518,16 @@ function NouvelleVente({
                         </button>
                       </div>
                     </div>
+
+                    <div className="mt-2">
+                      <ConteneurLigneSelect
+                        articleId={l.article_id}
+                        emplacementId={l.emplacement_id}
+                        value={l.conteneur_id}
+                        onChange={(conteneurId) => majLigne(i, { conteneur_id: conteneurId })}
+                      />
+                    </div>
+
                     <p className="mt-1.5 text-xs text-onyx-400">
                       {designationDe(l.article_id)} · Sous-total :{" "}
                       <span className="font-medium text-onyx-600">

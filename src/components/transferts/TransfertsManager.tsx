@@ -69,8 +69,13 @@ export function TransfertsManager() {
       .select("quantite")
       .eq("article_id", articleId)
       .eq("emplacement_id", sourceId)
-      .maybeSingle()
-      .then(({ data }) => setStockDisponible(data?.quantite ?? 0));
+      .then(({ data }) =>
+        // Un article peut désormais provenir de plusieurs conteneurs : on
+        // additionne toutes les lignes de stock pour cet emplacement.
+        setStockDisponible(
+          (data ?? []).reduce((sum, s) => sum + s.quantite, 0)
+        )
+      );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [articleId, sourceId]);
 

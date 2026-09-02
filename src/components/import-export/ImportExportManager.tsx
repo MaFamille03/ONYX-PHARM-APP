@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { logSupabaseError } from "@/lib/errors";
+import { getStockInitialId } from "@/lib/conteneurs";
 import {
   exporterExcel,
   telechargerModeleExcel,
@@ -191,6 +192,7 @@ export function ImportExportManager() {
     const {
       data: { user },
     } = await supabase.auth.getUser();
+    const stockInitialId = await getStockInitialId(supabase);
 
     let reussies = 0;
     let echouees = 0;
@@ -252,8 +254,13 @@ export function ImportExportManager() {
       const quantiteInitiale = Number(row["Quantité en stock"]) || 0;
       if (quantiteInitiale > 0 && emplacementId) {
         const { error: stockErr } = await supabase.from("stocks").upsert(
-          { article_id: article.id, emplacement_id: emplacementId, quantite: quantiteInitiale },
-          { onConflict: "article_id,emplacement_id" }
+          {
+            article_id: article.id,
+            emplacement_id: emplacementId,
+            conteneur_id: stockInitialId,
+            quantite: quantiteInitiale,
+          },
+          { onConflict: "article_id,emplacement_id,conteneur_id" }
         );
         if (stockErr) {
           logSupabaseError(

@@ -63,6 +63,10 @@ Si un script affiche une erreur en rouge :
 | `0010_audit_privileges.sql` | **Correction critique** : accorde au rôle `authenticated` les privilèges PostgreSQL nécessaires sur toutes les tables (corrige les erreurs 403 / `permission denied`), avec privilèges par défaut pour les futures tables |
 | `0011_catalogue_onyx_pharm.sql` | Intègre le catalogue réel ONYX PHARM : ~130 articles et 21 catégories |
 | `0012_comptes_entreprise.sql` | Statut de compte (Actif/Désactivé/Supprimé), informations entreprise et entrepôt |
+| `0014_reparation_profils.sql` | Répare les comptes créés avant l'existence de la table des profils |
+| `0015_conteneurs.sql` | **Restructuration majeure** : le stock est désormais suivi par conteneur (lot d'entrée), avec un conteneur technique "Stock Initial" regroupant tout le stock antérieur |
+| `0016_creation_conteneur.sql` | Création atomique d'un conteneur avec toutes ses lignes de stock (saisie manuelle + import Excel) |
+| `0017_conteneurs_paiements_fifo.sql` | **Remplacement complet des Achats** : prix d'achat du conteneur optionnel, paiements et statut liés au conteneur (sans rapport avec les ventes), décaissement automatique, et sorties de stock en FIFO multi-conteneurs avec ciblage manuel possible |
 
 Il n'y a pas de nouveau fichier SQL pour l'étape 10 : elle s'appuie
 entièrement sur les tables et vues déjà créées.

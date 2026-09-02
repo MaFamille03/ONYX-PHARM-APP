@@ -1,5 +1,5 @@
-import { PaiementsAchatsManager } from "@/components/achats/PaiementsAchatsManager";
+import { PaiementsConteneursManager } from "@/components/conteneurs/PaiementsConteneursManager";
 
 export default function DettesPage() {
-  return <PaiementsAchatsManager />;
+  return <PaiementsConteneursManager />;
 }

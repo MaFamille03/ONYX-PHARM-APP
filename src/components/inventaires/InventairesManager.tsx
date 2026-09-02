@@ -121,9 +121,9 @@ export function InventairesManager() {
           stocks: { emplacement_id: string; quantite: number }[];
         }[]
       ).map((a) => {
-        const theorique =
-          a.stocks.find((s) => s.emplacement_id === emplacementId)
-            ?.quantite ?? 0;
+        const theorique = a.stocks
+          .filter((s) => s.emplacement_id === emplacementId)
+          .reduce((sum, s) => sum + s.quantite, 0);
         return {
           inventaire_id: inventaire.id,
           article_id: a.id,

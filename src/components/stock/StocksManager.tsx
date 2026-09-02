@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { Search, Pencil } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { logSupabaseError } from "@/lib/errors";
+import { getStockInitialId } from "@/lib/conteneurs";
 import { Modal } from "@/components/ui/Modal";
 import { PrimaryButton, SecondaryButton } from "@/components/ui/Buttons";
 import { InlineBanner } from "@/components/ui/Badges";
@@ -55,7 +56,11 @@ export function StocksManager() {
         const parEmplacement: Record<string, number> = {};
         let total = 0;
         for (const s of a.stocks) {
-          parEmplacement[s.emplacement_id] = s.quantite;
+          // Un article peut désormais avoir plusieurs lignes de stock pour
+          // un même emplacement (une par conteneur) : on additionne, on
+          // n'écrase jamais.
+          parEmplacement[s.emplacement_id] =
+            (parEmplacement[s.emplacement_id] || 0) + s.quantite;
           total += s.quantite;
         }
         return { article_id: a.id, designation: a.designation, parEmplacement, total };
@@ -112,13 +117,45 @@ export function StocksManager() {
       data: { user },
     } = await supabase.auth.getUser();
 
+    const stockInitialId = await getStockInitialId(supabase);
+    if (!stockInitialId) {
+      setError(
+        "Conteneur « Stock Initial » introuvable. Exécutez la migration 0015 dans Supabase."
+      );
+      setSaving(false);
+      return;
+    }
+
+    // Le stock peut désormais provenir de plusieurs conteneurs : la
+    // correction manuelle s'applique toujours au conteneur "Stock Initial"
+    // (les autres conteneurs, à venir dès l'étape 2, ne sont pas touchés).
+    const { data: ligneInitiale } = await supabase
+      .from("stocks")
+      .select("quantite")
+      .eq("article_id", ajustement.articleId)
+      .eq("emplacement_id", ajustement.emplacementId)
+      .eq("conteneur_id", stockInitialId)
+      .maybeSingle();
+
+    const quantiteInitialeActuelle = ligneInitiale?.quantite ?? 0;
+    const nouvelleQuantiteInitiale = quantiteInitialeActuelle + delta;
+
+    if (nouvelleQuantiteInitiale < 0) {
+      setError(
+        "Cette correction ferait passer le stock du conteneur Stock Initial en dessous de zéro."
+      );
+      setSaving(false);
+      return;
+    }
+
     const { error: upsertError } = await supabase.from("stocks").upsert(
       {
         article_id: ajustement.articleId,
         emplacement_id: ajustement.emplacementId,
-        quantite: nouvelle,
+        conteneur_id: stockInitialId,
+        quantite: nouvelleQuantiteInitiale,
       },
-      { onConflict: "article_id,emplacement_id" }
+      { onConflict: "article_id,emplacement_id,conteneur_id" }
     );
 
     if (upsertError) {

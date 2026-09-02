@@ -32,6 +32,7 @@ export const NAVIGATION: NavSection[] = [
       { label: "Transferts", href: "/stock/transferts", step: 5 },
       { label: "Inventaires", href: "/stock/inventaires", step: 5 },
       { label: "Alertes", href: "/stock/alertes", step: 4 },
+      { label: "Conteneurs", href: "/stock/conteneurs", step: 10 },
     ],
   },
   {
@@ -42,16 +43,6 @@ export const NAVIGATION: NavSection[] = [
       { label: "Ventes", href: "/ventes/ventes", step: 7 },
       { label: "Paiements", href: "/ventes/paiements", step: 7 },
       { label: "Retours", href: "/ventes/retours", step: 7 },
-    ],
-  },
-  {
-    label: "Achats",
-    icon: "truck",
-    children: [
-      { label: "Achats", href: "/achats/achats", step: 6 },
-      { label: "Réceptions", href: "/achats/receptions", step: 6 },
-      { label: "Paiements", href: "/achats/paiements", step: 6 },
-      { label: "Retours", href: "/achats/retours", step: 6 },
     ],
   },
   {
