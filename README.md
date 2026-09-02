@@ -706,3 +706,53 @@ Supabase (Authentication > Users), ce qui prend quelques secondes.
 7. Testez la **zone dangereuse** (Paramètres > Compte) avec un compte de
    test — vérifiez qu'un compte désactivé ne peut plus se reconnecter et
    que l'historique reste lisible
+
+---
+
+## ÉTAPE 13 — Audit complet des opérations silencieuses
+
+Suite à votre remarque sur le stock qui ne se mettait pas à jour, j'ai
+relu **l'intégralité** du code de l'application (pas seulement la page
+concernée) à la recherche du même type de problème.
+
+### Ce qui a été trouvé et corrigé
+
+Plusieurs actions de l'application appelaient Supabase **sans jamais
+vérifier si l'opération avait réellement réussi**. Quand une erreur
+survenait (permission, contrainte, connexion...), l'écran se contentait
+de se recharger sans que rien ne se passe — sans aucun message. C'est
+exactement le symptôme "aucun changement" que vous aviez signalé.
+
+Corrigé dans la totalité de l'application : Emplacements, Catégories,
+Listes de paramètres, Clients/Fournisseurs, Caisse, Solde, Transferts,
+Inventaires, Achats, Réceptions, Paiements (achats et ventes), Retours
+(fournisseurs et clients), Ventes, Devis, Import Excel, et la fiche
+Article. Chaque opération affiche maintenant un message clair en cas
+d'échec, et journalise le détail technique exact (code, table,
+opération) dans la console du navigateur (F12) pour un diagnostic
+immédiat si un problème survient encore.
+
+**Deux cas plus sérieux** ont aussi été trouvés et corrigés : lors de la
+conversion d'un devis en vente, et lors de la création d'un inventaire,
+les lignes de détail pouvaient échouer à s'enregistrer silencieusement —
+laissant croire qu'un document complet avait été créé alors qu'il était
+vide. Ces deux opérations vérifient désormais explicitement leur succès.
+
+### Procédure
+
+1. Dézippez ce zip par-dessus votre dossier de travail
+2. GitHub Desktop → commit (`Étape 13 : audit des opérations
+   silencieuses`) → Push
+3. **Aucune action Supabase nécessaire** — cette étape ne touche qu'au
+   code de l'application, pas à la base de données
+
+### À tester
+
+1. Allez dans **Stock > Stocks**, ajustez une quantité : elle doit
+   maintenant se mettre à jour correctement
+2. Testez les boutons "Activer/Désactiver" dans Paramètres > Emplacements
+   et Catégories : le changement doit être immédiat et visible
+3. Si un message d'erreur apparaît quelque part, ouvrez la console du
+   navigateur (**F12 → Console**) : vous verrez désormais `[ONYX PHARM]
+   Erreur Supabase` avec le code exact — partagez-le-moi si besoin, ce
+   sera immédiatement exploitable

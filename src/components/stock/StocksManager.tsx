@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { Search, Pencil } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { logSupabaseError } from "@/lib/errors";
 import { Modal } from "@/components/ui/Modal";
 import { PrimaryButton, SecondaryButton } from "@/components/ui/Buttons";
 import { InlineBanner } from "@/components/ui/Badges";
@@ -121,12 +122,18 @@ export function StocksManager() {
     );
 
     if (upsertError) {
-      setError("Impossible de mettre à jour le stock.");
+      setError(
+        logSupabaseError(
+          { table: "stocks", operation: "upsert" },
+          upsertError,
+          "Impossible de mettre à jour le stock. Vérifiez les informations saisies ou réessayez."
+        )
+      );
       setSaving(false);
       return;
     }
 
-    await supabase.from("mouvements_stock").insert({
+    const { error: mouvementError } = await supabase.from("mouvements_stock").insert({
       article_id: ajustement.articleId,
       emplacement_id: ajustement.emplacementId,
       type: delta > 0 ? "autre_entree" : "autre_sortie",
@@ -135,6 +142,18 @@ export function StocksManager() {
       observation: motif.trim() || "Correction manuelle de stock",
       created_by: user?.id ?? null,
     });
+
+    if (mouvementError) {
+      setError(
+        logSupabaseError(
+          { table: "mouvements_stock", operation: "insert" },
+          mouvementError,
+          "Le stock a été mis à jour, mais le mouvement n'a pas pu être enregistré."
+        )
+      );
+      setSaving(false);
+      return;
+    }
 
     setSaving(false);
     setAjustement(null);

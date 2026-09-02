@@ -9,6 +9,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { logSupabaseError } from "@/lib/errors";
 import {
   exporterExcel,
   telechargerModeleExcel,
@@ -239,17 +240,29 @@ export function ImportExportManager() {
         .single();
 
       if (error || !article) {
+        logSupabaseError(
+          { table: "articles", operation: "insert (import Excel)" },
+          error,
+          ""
+        );
         echouees += 1;
         continue;
       }
 
       const quantiteInitiale = Number(row["Quantité en stock"]) || 0;
       if (quantiteInitiale > 0 && emplacementId) {
-        await supabase.from("stocks").upsert(
+        const { error: stockErr } = await supabase.from("stocks").upsert(
           { article_id: article.id, emplacement_id: emplacementId, quantite: quantiteInitiale },
           { onConflict: "article_id,emplacement_id" }
         );
-        await supabase.from("mouvements_stock").insert({
+        if (stockErr) {
+          logSupabaseError(
+            { table: "stocks", operation: "upsert (import Excel)" },
+            stockErr,
+            ""
+          );
+        }
+        const { error: mouvementErr } = await supabase.from("mouvements_stock").insert({
           article_id: article.id,
           emplacement_id: emplacementId,
           type: "autre_entree",
@@ -258,6 +271,13 @@ export function ImportExportManager() {
           observation: "Import Excel initial",
           created_by: user?.id ?? null,
         });
+        if (mouvementErr) {
+          logSupabaseError(
+            { table: "mouvements_stock", operation: "insert (import Excel)" },
+            mouvementErr,
+            ""
+          );
+        }
       }
       reussies += 1;
     }

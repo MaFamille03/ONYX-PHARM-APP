@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { Wallet, TrendingUp, TrendingDown, Pencil } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { logSupabaseError } from "@/lib/errors";
 import { Modal } from "@/components/ui/Modal";
 import { PrimaryButton, SecondaryButton } from "@/components/ui/Buttons";
 import { InlineBanner } from "@/components/ui/Badges";
@@ -92,7 +93,13 @@ export function SoldeManager() {
       .eq("cle", "solde_caisse_initial");
     setSaving(false);
     if (error) {
-      setError("Impossible de mettre à jour le solde initial.");
+      setError(
+        logSupabaseError(
+          { table: "parametres_generaux", operation: "update" },
+          error,
+          "Impossible de mettre à jour le solde initial. Réessayez."
+        )
+      );
       return;
     }
     setModalOpen(false);

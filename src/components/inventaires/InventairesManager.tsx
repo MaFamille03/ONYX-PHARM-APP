@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { Plus, ArrowLeft, CheckCircle2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { logSupabaseError } from "@/lib/errors";
 import { Modal } from "@/components/ui/Modal";
 import { SelectField } from "@/components/ui/FormControls";
 import { PrimaryButton, SecondaryButton } from "@/components/ui/Buttons";
@@ -74,7 +75,13 @@ export function InventairesManager() {
       { p_prefixe: "INV" }
     );
     if (refError || !refData) {
-      setError("Impossible de générer la référence.");
+      setError(
+        logSupabaseError(
+          { table: "numero_sequences", operation: "rpc generer_numero_document" },
+          refError,
+          "Impossible de générer la référence. Réessayez."
+        )
+      );
       setCreating(false);
       return;
     }
@@ -91,7 +98,13 @@ export function InventairesManager() {
       .single();
 
     if (invError || !inventaire) {
-      setError("Impossible de créer l'inventaire.");
+      setError(
+        logSupabaseError(
+          { table: "inventaires", operation: "insert" },
+          invError,
+          "Impossible de créer l'inventaire. Réessayez."
+        )
+      );
       setCreating(false);
       return;
     }
@@ -118,7 +131,21 @@ export function InventairesManager() {
           quantite_reelle: theorique,
         };
       });
-      await supabase.from("inventaire_lignes").insert(lignes);
+      const { error: lignesError } = await supabase
+        .from("inventaire_lignes")
+        .insert(lignes);
+
+      if (lignesError) {
+        setCreating(false);
+        setError(
+          logSupabaseError(
+            { table: "inventaire_lignes", operation: "insert" },
+            lignesError,
+            "L'inventaire a été créé mais ses lignes n'ont pas pu être générées. Réessayez."
+          )
+        );
+        return;
+      }
     }
 
     setCreating(false);
@@ -308,7 +335,13 @@ function InventaireDetail({
     setValidating(false);
 
     if (error) {
-      setError("Impossible de valider l'inventaire.");
+      setError(
+        logSupabaseError(
+          { table: "inventaires", operation: "rpc valider_inventaire" },
+          error,
+          "Impossible de valider l'inventaire. Réessayez."
+        )
+      );
       return;
     }
 

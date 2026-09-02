@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { Plus, ArrowLeft, Trash2, CreditCard, XCircle, Printer } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { logSupabaseError } from "@/lib/errors";
 import { Modal } from "@/components/ui/Modal";
 import { SelectField } from "@/components/ui/FormControls";
 import { PrimaryButton, SecondaryButton } from "@/components/ui/Buttons";
@@ -262,7 +263,13 @@ function NouvelAchat({
       { p_prefixe: "ACH" }
     );
     if (refError || !refData) {
-      setError("Impossible de générer la référence.");
+      setError(
+        logSupabaseError(
+          { table: "numero_sequences", operation: "rpc generer_numero_document" },
+          refError,
+          "Impossible de générer la référence. Réessayez."
+        )
+      );
       setSaving(false);
       return;
     }
@@ -281,7 +288,13 @@ function NouvelAchat({
       .single();
 
     if (achatError || !achat) {
-      setError("Impossible de créer l'achat.");
+      setError(
+        logSupabaseError(
+          { table: "achats", operation: "insert" },
+          achatError,
+          "Impossible de créer l'achat. Réessayez."
+        )
+      );
       setSaving(false);
       return;
     }
@@ -551,8 +564,15 @@ function AchatDetail({
       .update({ statut: "Validé" })
       .eq("id", achatId);
     setBusy(false);
-    if (error) setError("Impossible de valider cet achat.");
-    else load();
+    if (error) {
+      setError(
+        logSupabaseError(
+          { table: "achats", operation: "update (validation)" },
+          error,
+          "Impossible de valider cet achat. Réessayez."
+        )
+      );
+    } else load();
   }
 
   async function annulerAchat() {
@@ -570,8 +590,15 @@ function AchatDetail({
       .update({ statut: "Annulé" })
       .eq("id", achatId);
     setBusy(false);
-    if (error) setError("Impossible d'annuler cet achat.");
-    else load();
+    if (error) {
+      setError(
+        logSupabaseError(
+          { table: "achats", operation: "update (annulation brouillon)" },
+          error,
+          "Impossible d'annuler cet achat. Réessayez."
+        )
+      );
+    } else load();
   }
 
   async function annulerAchatAvecMotDePasse(motDePasse: string) {
@@ -630,7 +657,13 @@ function AchatDetail({
 
     setBusy(false);
     if (error) {
-      setError("Impossible d'enregistrer ce paiement.");
+      setError(
+        logSupabaseError(
+          { table: "paiements_achats", operation: "insert" },
+          error,
+          "Impossible d'enregistrer ce paiement. Réessayez."
+        )
+      );
       return;
     }
     setPaiementModalOpen(false);

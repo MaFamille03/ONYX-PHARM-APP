@@ -1,6 +1,6 @@
 # Suivi du projet ONYX PHARM
 
-## Étape actuelle : 10 — Rapports, Import/Export & Tableau de bord final (livrée — projet complet)
+## Étape actuelle : 13 — Audit complet des erreurs silencieuses (livrée)
 
 Ce projet est livré de façon **cumulative** : chaque nouveau zip
 (`onyx-pharm-app-etape-N`) contient l'intégralité du code depuis l'étape 1,
@@ -21,6 +21,9 @@ plusieurs zips entre eux — le plus récent contient toujours tout.
 | 8 | Caisse & liens automatiques | ✅ Livré |
 | 9 | Traçabilité, sécurité & annulations | ✅ Livré |
 | 10 | Rapports, Import/Export & Tableau de bord | ✅ Livré |
+| 11 | Audit global, catalogue réel & finalisation | ✅ Livré |
+| 12 | Diagnostic détaillé sur la page Stocks | ✅ Livré |
+| 13 | Audit complet des opérations silencieuses (tout le projet) | ✅ Livré |
 
 ## Le projet est maintenant complet
 

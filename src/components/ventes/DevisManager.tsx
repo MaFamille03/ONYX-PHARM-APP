@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { Plus, ArrowLeft, Trash2, FileOutput, Printer } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { logSupabaseError } from "@/lib/errors";
 import { PrimaryButton, SecondaryButton } from "@/components/ui/Buttons";
 import { InlineBanner, StatutBadge } from "@/components/ui/Badges";
 import { ClientSelect } from "@/components/tiers/ClientSelect";
@@ -221,7 +222,13 @@ function NouveauDevis({
       { p_prefixe: "DEV" }
     );
     if (refError || !refData) {
-      setError("Impossible de générer la référence.");
+      setError(
+        logSupabaseError(
+          { table: "numero_sequences", operation: "rpc generer_numero_document" },
+          refError,
+          "Impossible de générer la référence. Réessayez."
+        )
+      );
       setSaving(false);
       return;
     }
@@ -240,7 +247,13 @@ function NouveauDevis({
       .single();
 
     if (devisError || !devis) {
-      setError("Impossible de créer le devis.");
+      setError(
+        logSupabaseError(
+          { table: "devis", operation: "insert" },
+          devisError,
+          "Impossible de créer le devis. Réessayez."
+        )
+      );
       setSaving(false);
       return;
     }
@@ -483,7 +496,13 @@ function DevisDetail({
       { p_prefixe: "FAC" }
     );
     if (refError || !refData) {
-      setError("Impossible de générer la référence de vente.");
+      setError(
+        logSupabaseError(
+          { table: "numero_sequences", operation: "rpc generer_numero_document" },
+          refError,
+          "Impossible de générer la référence de vente. Réessayez."
+        )
+      );
       setConverting(false);
       return;
     }
@@ -501,12 +520,18 @@ function DevisDetail({
       .single();
 
     if (venteError || !vente) {
-      setError("Impossible de créer la vente à partir de ce devis.");
+      setError(
+        logSupabaseError(
+          { table: "ventes", operation: "insert (conversion devis)" },
+          venteError,
+          "Impossible de créer la vente à partir de ce devis. Réessayez."
+        )
+      );
       setConverting(false);
       return;
     }
 
-    await supabase.from("lignes_ventes").insert(
+    const { error: lignesError } = await supabase.from("lignes_ventes").insert(
       lignes.map((l) => {
         const art = articlesMap.get(l.article_id);
         return {
@@ -522,7 +547,29 @@ function DevisDetail({
       })
     );
 
-    await supabase.from("devis").update({ statut: "Validé" }).eq("id", devisId);
+    if (lignesError) {
+      setConverting(false);
+      setError(
+        logSupabaseError(
+          { table: "lignes_ventes", operation: "insert (conversion devis)" },
+          lignesError,
+          `La vente ${vente.id} a été créée mais ses lignes n'ont pas pu être enregistrées. Contactez le support.`
+        )
+      );
+      return;
+    }
+
+    const { error: devisUpdateError } = await supabase
+      .from("devis")
+      .update({ statut: "Validé" })
+      .eq("id", devisId);
+    if (devisUpdateError) {
+      logSupabaseError(
+        { table: "devis", operation: "update (statut après conversion)" },
+        devisUpdateError,
+        ""
+      );
+    }
 
     setConverting(false);
     setError(

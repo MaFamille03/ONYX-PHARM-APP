@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { Plus, MapPin } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { logSupabaseError } from "@/lib/errors";
 import { FormField } from "@/components/auth/FormField";
 import { PrimaryButton, SecondaryButton } from "@/components/ui/Buttons";
 import { InlineBanner } from "@/components/ui/Badges";
@@ -49,7 +50,11 @@ export function EmplacementsSection() {
       setError(
         error.code === "23505"
           ? "Cet emplacement existe déjà."
-          : "Impossible d'ajouter cet emplacement."
+          : logSupabaseError(
+              { table: "emplacements", operation: "insert" },
+              error,
+              "Impossible d'ajouter cet emplacement. Réessayez."
+            )
       );
       return;
     }
@@ -58,10 +63,21 @@ export function EmplacementsSection() {
   }
 
   async function toggleActif(item: Emplacement) {
-    await supabase
+    setError(null);
+    const { error } = await supabase
       .from("emplacements")
       .update({ actif: !item.actif })
       .eq("id", item.id);
+    if (error) {
+      setError(
+        logSupabaseError(
+          { table: "emplacements", operation: "update" },
+          error,
+          "Impossible de modifier cet emplacement. Réessayez."
+        )
+      );
+      return;
+    }
     load();
   }
 

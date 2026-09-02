@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { CreditCard } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { logSupabaseError } from "@/lib/errors";
 import { Modal } from "@/components/ui/Modal";
 import { SelectField } from "@/components/ui/FormControls";
 import { PrimaryButton } from "@/components/ui/Buttons";
@@ -119,7 +120,13 @@ export function PaiementsAchatsManager() {
 
     setSaving(false);
     if (error) {
-      setError("Impossible d'enregistrer ce paiement.");
+      setError(
+        logSupabaseError(
+          { table: "paiements_achats", operation: "insert" },
+          error,
+          "Impossible d'enregistrer ce paiement. Réessayez."
+        )
+      );
       return;
     }
     setModalAchat(null);

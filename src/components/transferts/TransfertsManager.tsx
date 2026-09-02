@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { Plus, ArrowRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { logSupabaseError } from "@/lib/errors";
 import { Modal } from "@/components/ui/Modal";
 import { SelectField } from "@/components/ui/FormControls";
 import { ArticleSelect } from "@/components/articles/ArticleSelect";
@@ -122,7 +123,11 @@ export function TransfertsManager() {
       setError(
         error.message.includes("Stock insuffisant")
           ? error.message
-          : "Impossible d'effectuer ce transfert."
+          : logSupabaseError(
+              { table: "transferts", operation: "rpc effectuer_transfert" },
+              error,
+              "Impossible d'effectuer ce transfert. Réessayez."
+            )
       );
       return;
     }

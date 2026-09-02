@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { PackageCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { logSupabaseError } from "@/lib/errors";
 import { PrimaryButton } from "@/components/ui/Buttons";
 import { InlineBanner } from "@/components/ui/Badges";
 
@@ -63,7 +64,13 @@ export function ReceptionsManager() {
 
     setBusyId(null);
     if (error) {
-      setError("Impossible de réceptionner cette ligne.");
+      setError(
+        logSupabaseError(
+          { table: "lignes_achats", operation: "rpc receptionner_ligne_achat" },
+          error,
+          "Impossible de réceptionner cette ligne. Réessayez."
+        )
+      );
       return;
     }
     load();

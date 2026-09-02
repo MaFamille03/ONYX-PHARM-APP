@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { Plus, ChevronDown, Tag } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { logSupabaseError } from "@/lib/errors";
 import { FormField } from "@/components/auth/FormField";
 import { PrimaryButton, SecondaryButton } from "@/components/ui/Buttons";
 import { InlineBanner } from "@/components/ui/Badges";
@@ -56,7 +57,11 @@ export function CategoriesSection() {
       setError(
         error.code === "23505"
           ? "Cette catégorie existe déjà."
-          : "Impossible d'ajouter cette catégorie."
+          : logSupabaseError(
+              { table: "categories", operation: "insert" },
+              error,
+              "Impossible d'ajouter cette catégorie. Réessayez."
+            )
       );
       return;
     }
@@ -77,7 +82,11 @@ export function CategoriesSection() {
       setError(
         error.code === "23505"
           ? "Cette sous-catégorie existe déjà dans cette catégorie."
-          : "Impossible d'ajouter cette sous-catégorie."
+          : logSupabaseError(
+              { table: "sous_categories", operation: "insert" },
+              error,
+              "Impossible d'ajouter cette sous-catégorie. Réessayez."
+            )
       );
       return;
     }
@@ -86,18 +95,40 @@ export function CategoriesSection() {
   }
 
   async function toggleCategorieActif(item: Categorie) {
-    await supabase
+    setError(null);
+    const { error } = await supabase
       .from("categories")
       .update({ actif: !item.actif })
       .eq("id", item.id);
+    if (error) {
+      setError(
+        logSupabaseError(
+          { table: "categories", operation: "update" },
+          error,
+          "Impossible de modifier cette catégorie. Réessayez."
+        )
+      );
+      return;
+    }
     load();
   }
 
   async function toggleSousCategorieActif(item: SousCategorie) {
-    await supabase
+    setError(null);
+    const { error } = await supabase
       .from("sous_categories")
       .update({ actif: !item.actif })
       .eq("id", item.id);
+    if (error) {
+      setError(
+        logSupabaseError(
+          { table: "sous_categories", operation: "update" },
+          error,
+          "Impossible de modifier cette sous-catégorie. Réessayez."
+        )
+      );
+      return;
+    }
     load();
   }
 

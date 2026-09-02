@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { Plus, ArrowLeft, Trash2, CreditCard, XCircle, Printer } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { logSupabaseError } from "@/lib/errors";
 import { Modal } from "@/components/ui/Modal";
 import { SelectField } from "@/components/ui/FormControls";
 import { PrimaryButton, SecondaryButton } from "@/components/ui/Buttons";
@@ -283,7 +284,13 @@ function NouvelleVente({
       { p_prefixe: "FAC" }
     );
     if (refError || !refData) {
-      setError("Impossible de générer la référence.");
+      setError(
+        logSupabaseError(
+          { table: "numero_sequences", operation: "rpc generer_numero_document" },
+          refError,
+          "Impossible de générer la référence. Réessayez."
+        )
+      );
       setSaving(false);
       return;
     }
@@ -302,7 +309,13 @@ function NouvelleVente({
       .single();
 
     if (venteError || !vente) {
-      setError("Impossible de créer la vente.");
+      setError(
+        logSupabaseError(
+          { table: "ventes", operation: "insert" },
+          venteError,
+          "Impossible de créer la vente. Réessayez."
+        )
+      );
       setSaving(false);
       return;
     }
@@ -638,8 +651,15 @@ function VenteDetail({
       .update({ statut: "Annulé" })
       .eq("id", venteId);
     setBusy(false);
-    if (error) setError("Impossible d'annuler cette vente.");
-    else load();
+    if (error) {
+      setError(
+        logSupabaseError(
+          { table: "ventes", operation: "update (annulation brouillon)" },
+          error,
+          "Impossible d'annuler cette vente. Réessayez."
+        )
+      );
+    } else load();
   }
 
   async function annulerVenteAvecMotDePasse(motDePasse: string) {
@@ -696,7 +716,13 @@ function VenteDetail({
 
     setBusy(false);
     if (error) {
-      setError("Impossible d'enregistrer ce paiement.");
+      setError(
+        logSupabaseError(
+          { table: "paiements_ventes", operation: "insert" },
+          error,
+          "Impossible d'enregistrer ce paiement. Réessayez."
+        )
+      );
       return;
     }
     setPaiementModalOpen(false);

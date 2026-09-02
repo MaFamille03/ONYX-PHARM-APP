@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { Plus, ArrowLeftRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { logSupabaseError } from "@/lib/errors";
 import { Modal } from "@/components/ui/Modal";
 import { ArticleSelect } from "@/components/articles/ArticleSelect";
 import { SelectField } from "@/components/ui/FormControls";
@@ -100,7 +101,11 @@ export function RetoursFournisseursManager() {
       setError(
         error.message.includes("Stock insuffisant")
           ? error.message
-          : "Impossible d'enregistrer ce retour."
+          : logSupabaseError(
+              { table: "retours_fournisseurs", operation: "rpc effectuer_retour_fournisseur" },
+              error,
+              "Impossible d'enregistrer ce retour. Réessayez."
+            )
       );
       return;
     }

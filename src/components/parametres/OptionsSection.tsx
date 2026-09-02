@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { logSupabaseError } from "@/lib/errors";
 import { SecondaryButton } from "@/components/ui/Buttons";
 import { InlineBanner } from "@/components/ui/Badges";
 
@@ -82,7 +83,11 @@ export function OptionsSection() {
       setError(
         error.code === "23505"
           ? "Cette valeur existe déjà dans cette liste."
-          : "Impossible d'ajouter cette valeur."
+          : logSupabaseError(
+              { table: "parametres_options", operation: "insert" },
+              error,
+              "Impossible d'ajouter cette valeur. Réessayez."
+            )
       );
       return;
     }
@@ -91,10 +96,21 @@ export function OptionsSection() {
   }
 
   async function toggleActif(item: OptionRow) {
-    await supabase
+    setError(null);
+    const { error } = await supabase
       .from("parametres_options")
       .update({ actif: !item.actif })
       .eq("id", item.id);
+    if (error) {
+      setError(
+        logSupabaseError(
+          { table: "parametres_options", operation: "update" },
+          error,
+          "Impossible de modifier cette valeur. Réessayez."
+        )
+      );
+      return;
+    }
     load();
   }
 

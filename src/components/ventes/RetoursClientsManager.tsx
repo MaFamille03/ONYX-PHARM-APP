@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { Plus, ArrowLeftRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { logSupabaseError } from "@/lib/errors";
 import { Modal } from "@/components/ui/Modal";
 import { ArticleSelect } from "@/components/articles/ArticleSelect";
 import { SelectField } from "@/components/ui/FormControls";
@@ -97,7 +98,13 @@ export function RetoursClientsManager() {
 
     setSaving(false);
     if (error) {
-      setError("Impossible d'enregistrer ce retour.");
+      setError(
+        logSupabaseError(
+          { table: "retours_clients", operation: "rpc effectuer_retour_client" },
+          error,
+          "Impossible d'enregistrer ce retour. Réessayez."
+        )
+      );
       return;
     }
     setModalOpen(false);

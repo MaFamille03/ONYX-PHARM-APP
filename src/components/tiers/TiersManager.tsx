@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { Plus, Search, Pencil, Phone, Mail } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { logSupabaseError } from "@/lib/errors";
 import { Modal } from "@/components/ui/Modal";
 import { FormField } from "@/components/auth/FormField";
 import { TextareaField, SelectField } from "@/components/ui/FormControls";
@@ -110,7 +111,13 @@ export function TiersManager({
         .update(payload)
         .eq("id", editingId);
       if (error) {
-        setError("Impossible d'enregistrer les modifications.");
+        setError(
+          logSupabaseError(
+            { table, operation: "update" },
+            error,
+            "Impossible d'enregistrer les modifications. Réessayez."
+          )
+        );
         setSaving(false);
         return;
       }
@@ -122,7 +129,13 @@ export function TiersManager({
         .from(table)
         .insert({ ...payload, created_by: user?.id ?? null });
       if (error) {
-        setError("Impossible de créer l'enregistrement.");
+        setError(
+          logSupabaseError(
+            { table, operation: "insert" },
+            error,
+            "Impossible de créer l'enregistrement. Réessayez."
+          )
+        );
         setSaving(false);
         return;
       }

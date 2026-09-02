@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { Plus, ArrowUpCircle, ArrowDownCircle, Search } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { logSupabaseError } from "@/lib/errors";
 import { Modal } from "@/components/ui/Modal";
 import { SelectField } from "@/components/ui/FormControls";
 import { PrimaryButton, SecondaryButton } from "@/components/ui/Buttons";
@@ -117,7 +118,13 @@ export function CaisseManager({
       { p_prefixe: prefixe }
     );
     if (refError || !refData) {
-      setError("Impossible de générer la référence.");
+      setError(
+        logSupabaseError(
+          { table: "numero_sequences", operation: "rpc generer_numero_document" },
+          refError,
+          "Impossible de générer la référence. Réessayez."
+        )
+      );
       setSaving(false);
       return;
     }
@@ -137,7 +144,13 @@ export function CaisseManager({
 
     setSaving(false);
     if (error) {
-      setError("Impossible d'enregistrer cette opération.");
+      setError(
+        logSupabaseError(
+          { table, operation: "insert" },
+          error,
+          "Impossible d'enregistrer cette opération. Réessayez."
+        )
+      );
       return;
     }
     setModalOpen(false);

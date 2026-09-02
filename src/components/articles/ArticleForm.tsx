@@ -155,7 +155,7 @@ export function ArticleFormModal({
       for (const [emplacementId, valeur] of entrees) {
         const quantite = Number(valeur);
 
-        await supabase.from("stocks").upsert(
+        const { error: stockError } = await supabase.from("stocks").upsert(
           {
             article_id: created.id,
             emplacement_id: emplacementId,
@@ -164,15 +164,33 @@ export function ArticleFormModal({
           { onConflict: "article_id,emplacement_id" }
         );
 
-        await supabase.from("mouvements_stock").insert({
-          article_id: created.id,
-          emplacement_id: emplacementId,
-          type: "autre_entree",
-          quantite,
-          document_type: "creation_article",
-          observation: "Stock initial à la création de l'article",
-          created_by: user?.id ?? null,
-        });
+        if (stockError) {
+          logSupabaseError(
+            { table: "stocks", operation: "upsert (stock initial)" },
+            stockError,
+            ""
+          );
+        }
+
+        const { error: mouvementError } = await supabase
+          .from("mouvements_stock")
+          .insert({
+            article_id: created.id,
+            emplacement_id: emplacementId,
+            type: "autre_entree",
+            quantite,
+            document_type: "creation_article",
+            observation: "Stock initial à la création de l'article",
+            created_by: user?.id ?? null,
+          });
+
+        if (mouvementError) {
+          logSupabaseError(
+            { table: "mouvements_stock", operation: "insert (stock initial)" },
+            mouvementError,
+            ""
+          );
+        }
       }
     }
 
