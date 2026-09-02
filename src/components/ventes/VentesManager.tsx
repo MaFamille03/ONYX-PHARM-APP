@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Plus, ArrowLeft, Trash2, CreditCard } from "lucide-react";
+import { Plus, ArrowLeft, Trash2, CreditCard, XCircle, Printer } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Modal } from "@/components/ui/Modal";
 import { SelectField } from "@/components/ui/FormControls";
@@ -9,6 +9,8 @@ import { PrimaryButton, SecondaryButton } from "@/components/ui/Buttons";
 import { InlineBanner, StatutBadge } from "@/components/ui/Badges";
 import { ClientSelect } from "@/components/tiers/ClientSelect";
 import { useReferenceData } from "@/lib/hooks/useReferenceData";
+import { SecondPasswordModal } from "@/components/securite/SecondPasswordModal";
+import { DocumentImprimable } from "@/components/documents/DocumentImprimable";
 
 type VenteRow = {
   id: string;
@@ -567,6 +569,8 @@ function VenteDetail({
   const [paiementModalOpen, setPaiementModalOpen] = useState(false);
   const [montantPaiement, setMontantPaiement] = useState("");
   const [modePaiement, setModePaiement] = useState("Espèces");
+  const [annulationModalOpen, setAnnulationModalOpen] = useState(false);
+  const [impressionOpen, setImpressionOpen] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -636,6 +640,29 @@ function VenteDetail({
     setBusy(false);
     if (error) setError("Impossible d'annuler cette vente.");
     else load();
+  }
+
+  async function annulerVenteAvecMotDePasse(motDePasse: string) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    const { error } = await supabase.rpc("annuler_vente", {
+      p_vente_id: venteId,
+      p_second_mdp: motDePasse,
+      p_utilisateur_id: user?.id ?? null,
+    });
+
+    if (error) {
+      throw new Error(
+        error.message.includes("Mot de passe")
+          ? "Mot de passe de sécurité incorrect."
+          : "Impossible d'annuler cette vente."
+      );
+    }
+
+    setAnnulationModalOpen(false);
+    load();
   }
 
   async function handleAjouterPaiement(e: React.FormEvent) {
@@ -718,6 +745,18 @@ function VenteDetail({
                 Valider la vente
               </PrimaryButton>
             </>
+          )}
+          {vente.statut !== "Brouillon" && (
+            <SecondaryButton onClick={() => setImpressionOpen(true)}>
+              <Printer size={16} />
+              Imprimer
+            </SecondaryButton>
+          )}
+          {vente.statut !== "Brouillon" && vente.statut !== "Annulé" && (
+            <SecondaryButton onClick={() => setAnnulationModalOpen(true)}>
+              <XCircle size={16} />
+              Annuler la vente
+            </SecondaryButton>
           )}
           {vente.statut !== "Brouillon" && vente.statut !== "Annulé" && reste > 0 && (
             <PrimaryButton
@@ -888,6 +927,34 @@ function VenteDetail({
             </div>
           </form>
         </Modal>
+      )}
+
+      {annulationModalOpen && (
+        <SecondPasswordModal
+          title="Annuler la vente"
+          message={`Cette action restituera au stock les quantités vendues pour ${vente.reference} et ne peut pas être défaite. Les paiements déjà reçus (${vente.montant_paye.toLocaleString("fr-FR")} FCFA) ne seront pas remboursés automatiquement.`}
+          onCancel={() => setAnnulationModalOpen(false)}
+          onConfirm={annulerVenteAvecMotDePasse}
+        />
+      )}
+
+      {impressionOpen && (
+        <DocumentImprimable
+          typeDocument="Facture"
+          reference={vente.reference}
+          date={vente.date_vente}
+          tiersLabel="Client"
+          tiersNom={vente.clients?.nom}
+          lignes={lignes.map((l) => ({
+            designation: l.articles?.designation ?? "",
+            quantite: l.quantite,
+            prixUnitaire: l.prix_vente_reel,
+            montant: l.montant_ligne,
+          }))}
+          montantTotal={vente.montant_total}
+          montantPaye={vente.montant_paye}
+          onClose={() => setImpressionOpen(false)}
+        />
       )}
     </div>
   );

@@ -59,6 +59,13 @@ Si un script affiche une erreur en rouge :
 | `0006_achats_fonctions.sql` | Réception d'achat, retours fournisseurs, synchronisation automatique des paiements et du statut des achats |
 | `0007_ventes_fonctions.sql` | Validation atomique des ventes (interdiction du stock négatif), retours clients, synchronisation automatique des paiements et du statut des ventes |
 | `0008_caisse_liaisons.sql` | Liaison automatique vente→encaissement et achat→décaissement, solde de caisse initial |
+| `0009_securite_annulations.sql` | Second mot de passe de sécurité (haché), annulation sécurisée des ventes/achats avec réversion du stock, historique automatique des changements de prix |
+| `0010_audit_privileges.sql` | **Correction critique** : accorde au rôle `authenticated` les privilèges PostgreSQL nécessaires sur toutes les tables (corrige les erreurs 403 / `permission denied`), avec privilèges par défaut pour les futures tables |
+| `0011_catalogue_onyx_pharm.sql` | Intègre le catalogue réel ONYX PHARM : ~130 articles et 21 catégories |
+| `0012_comptes_entreprise.sql` | Statut de compte (Actif/Désactivé/Supprimé), informations entreprise et entrepôt |
+
+Il n'y a pas de nouveau fichier SQL pour l'étape 10 : elle s'appuie
+entièrement sur les tables et vues déjà créées.
 
 ## Sécurité (Row Level Security)
 

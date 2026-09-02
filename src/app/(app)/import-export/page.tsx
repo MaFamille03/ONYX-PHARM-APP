@@ -1,11 +1,5 @@
-import { PlaceholderPage } from "@/components/PlaceholderPage";
+import { ImportExportManager } from "@/components/import-export/ImportExportManager";
 
-export default function Page() {
-  return (
-    <PlaceholderPage
-      title="Import / Export"
-      description="Import et export Excel des articles et des donnees de l application."
-      step={10}
-    />
-  );
+export default function ImportExportPage() {
+  return <ImportExportManager />;
 }

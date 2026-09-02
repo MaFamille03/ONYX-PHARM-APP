@@ -1,6 +1,6 @@
 # Suivi du projet ONYX PHARM
 
-## Étape actuelle : 8 — Caisse & liens automatiques (livrée)
+## Étape actuelle : 10 — Rapports, Import/Export & Tableau de bord final (livrée — projet complet)
 
 Ce projet est livré de façon **cumulative** : chaque nouveau zip
 (`onyx-pharm-app-etape-N`) contient l'intégralité du code depuis l'étape 1,
@@ -19,8 +19,36 @@ plusieurs zips entre eux — le plus récent contient toujours tout.
 | 6 | Achats | ✅ Livré |
 | 7 | Ventes | ✅ Livré |
 | 8 | Caisse & liens automatiques | ✅ Livré |
-| 9 | Traçabilité, sécurité & annulations | À venir |
-| 10 | Rapports, Import/Export & Tableau de bord | À venir |
+| 9 | Traçabilité, sécurité & annulations | ✅ Livré |
+| 10 | Rapports, Import/Export & Tableau de bord | ✅ Livré |
+
+## Le projet est maintenant complet
+
+Les 10 étapes du cahier des charges ont été livrées. L'application couvre
+l'intégralité du cycle : articles → stock → achats → ventes → marges →
+encaissements → décaissements → créances → dettes → inventaires →
+rapports, avec traçabilité, sécurité et documents imprimables.
+
+## Étape 11 — Audit global, catalogue réel & finalisation (livrée)
+
+Suite à l'audit demandé, cette étape corrige les permissions Supabase de
+fond en comble et ajoute plusieurs finitions professionnelles :
+
+- **Correction du bug de permissions (403 / 42501)** : accordée à tout le
+  rôle `authenticated`, sur toutes les tables existantes ET futures
+- **Logo officiel ONYX PHARM** intégré (connexion, navigation, favicon,
+  documents imprimés) — extrait directement du catalogue fourni
+- **Catalogue réel** : ~130 articles + 21 catégories repris du catalogue
+  officiel ONYX PHARM 2026 (équipements, instruments, consommables)
+- **Présentation initiale** pour les nouveaux utilisateurs, revisible
+  depuis Paramètres
+- **Formulaire Article élargi** sur ordinateur (grille 2 colonnes, plus de
+  défilement excessif) + case « Non applicable » pour la date d'expiration
+- **Paramètres réorganisés** : Général (entreprise/logo), Entrepôt (à
+  compléter), Sécurité, Compte (zone dangereuse)
+- **Zone dangereuse** : désactivation de compte (historique conservé) et
+  suppression (données personnelles anonymisées, documents commerciaux
+  préservés), toutes deux protégées par le second mot de passe
 
 ## Comment mettre à jour votre dossier de travail à chaque étape
 

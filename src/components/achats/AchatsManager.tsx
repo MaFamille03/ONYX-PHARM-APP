@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Plus, ArrowLeft, Trash2, CreditCard } from "lucide-react";
+import { Plus, ArrowLeft, Trash2, CreditCard, XCircle, Printer } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Modal } from "@/components/ui/Modal";
 import { SelectField } from "@/components/ui/FormControls";
@@ -9,6 +9,8 @@ import { PrimaryButton, SecondaryButton } from "@/components/ui/Buttons";
 import { InlineBanner, StatutBadge } from "@/components/ui/Badges";
 import { FournisseurSelect } from "@/components/tiers/FournisseurSelect";
 import { useReferenceData } from "@/lib/hooks/useReferenceData";
+import { SecondPasswordModal } from "@/components/securite/SecondPasswordModal";
+import { DocumentImprimable } from "@/components/documents/DocumentImprimable";
 
 type AchatRow = {
   id: string;
@@ -504,6 +506,8 @@ function AchatDetail({
   const [paiementModalOpen, setPaiementModalOpen] = useState(false);
   const [montantPaiement, setMontantPaiement] = useState("");
   const [modePaiement, setModePaiement] = useState("Espèces");
+  const [annulationModalOpen, setAnnulationModalOpen] = useState(false);
+  const [impressionOpen, setImpressionOpen] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -568,6 +572,31 @@ function AchatDetail({
     setBusy(false);
     if (error) setError("Impossible d'annuler cet achat.");
     else load();
+  }
+
+  async function annulerAchatAvecMotDePasse(motDePasse: string) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    const { error } = await supabase.rpc("annuler_achat", {
+      p_achat_id: achatId,
+      p_second_mdp: motDePasse,
+      p_utilisateur_id: user?.id ?? null,
+    });
+
+    if (error) {
+      throw new Error(
+        error.message.includes("Mot de passe")
+          ? "Mot de passe de sécurité incorrect."
+          : error.message.includes("déjà été utilisé")
+            ? error.message
+            : "Impossible d'annuler cet achat."
+      );
+    }
+
+    setAnnulationModalOpen(false);
+    load();
   }
 
   async function handleAjouterPaiement(e: React.FormEvent) {
@@ -649,6 +678,18 @@ function AchatDetail({
                 Valider l&apos;achat
               </PrimaryButton>
             </>
+          )}
+          {achat.statut !== "Brouillon" && (
+            <SecondaryButton onClick={() => setImpressionOpen(true)}>
+              <Printer size={16} />
+              Imprimer
+            </SecondaryButton>
+          )}
+          {achat.statut !== "Brouillon" && achat.statut !== "Annulé" && (
+            <SecondaryButton onClick={() => setAnnulationModalOpen(true)}>
+              <XCircle size={16} />
+              Annuler l&apos;achat
+            </SecondaryButton>
           )}
           {achat.statut !== "Brouillon" && achat.statut !== "Annulé" && reste > 0 && (
             <PrimaryButton
@@ -828,6 +869,34 @@ function AchatDetail({
             </div>
           </form>
         </Modal>
+      )}
+
+      {annulationModalOpen && (
+        <SecondPasswordModal
+          title="Annuler l'achat"
+          message={`Cette action retirera du stock les quantités déjà reçues pour ${achat.reference} et ne peut pas être défaite. Les paiements déjà enregistrés (${achat.montant_paye.toLocaleString("fr-FR")} FCFA) ne seront pas remboursés automatiquement.`}
+          onCancel={() => setAnnulationModalOpen(false)}
+          onConfirm={annulerAchatAvecMotDePasse}
+        />
+      )}
+
+      {impressionOpen && (
+        <DocumentImprimable
+          typeDocument="Bon d'achat"
+          reference={achat.reference}
+          date={achat.date_achat}
+          tiersLabel="Fournisseur"
+          tiersNom={achat.fournisseurs?.nom}
+          lignes={lignes.map((l) => ({
+            designation: l.articles?.designation ?? "",
+            quantite: l.quantite,
+            prixUnitaire: l.prix_achat_unitaire,
+            montant: l.montant_ligne,
+          }))}
+          montantTotal={achat.montant_total}
+          montantPaye={achat.montant_paye}
+          onClose={() => setImpressionOpen(false)}
+        />
       )}
     </div>
   );

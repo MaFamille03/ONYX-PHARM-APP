@@ -1,19 +1,65 @@
-import { createClient } from "@/lib/supabase/server";
+"use client";
+
+import { useEffect, useState } from "react";
 import { UserCog } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+import { FormField } from "@/components/auth/FormField";
+import { PrimaryButton } from "@/components/ui/Buttons";
+import { InlineBanner } from "@/components/ui/Badges";
 
-export default async function UtilisateursPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+export default function UtilisateursPage() {
+  const supabase = createClient();
+  const [email, setEmail] = useState<string | null>(null);
+  const [dateCreation, setDateCreation] = useState<string>("—");
+  const [nomComplet, setNomComplet] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [success, setSuccess] = useState(false);
 
-  const dateCreation = user?.created_at
-    ? new Date(user.created_at).toLocaleDateString("fr-FR", {
-        day: "2-digit",
-        month: "long",
-        year: "numeric",
-      })
-    : "—";
+  useEffect(() => {
+    async function load() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+      setEmail(user.email ?? null);
+      setDateCreation(
+        user.created_at
+          ? new Date(user.created_at).toLocaleDateString("fr-FR", {
+              day: "2-digit",
+              month: "long",
+              year: "numeric",
+            })
+          : "—"
+      );
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("nom_complet")
+        .eq("id", user.id)
+        .maybeSingle();
+      setNomComplet(profile?.nom_complet ?? "");
+      setLoading(false);
+    }
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    setSuccess(false);
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) {
+      await supabase
+        .from("profiles")
+        .update({ nom_complet: nomComplet.trim() || null })
+        .eq("id", user.id);
+      setSuccess(true);
+    }
+    setSaving(false);
+  }
 
   return (
     <div>
@@ -32,11 +78,31 @@ export default async function UtilisateursPage() {
           </div>
           <div>
             <p className="text-sm font-medium text-onyx-800">
-              {user?.email ?? "—"}
+              {email ?? "—"}
             </p>
-            <p className="text-xs text-onyx-400">Compte créé le {dateCreation}</p>
+            <p className="text-xs text-onyx-400">
+              Compte créé le {dateCreation}
+            </p>
           </div>
         </div>
+
+        {!loading && (
+          <form onSubmit={handleSubmit} className="mt-5 space-y-3">
+            {success && (
+              <InlineBanner type="success" message="Nom mis à jour." />
+            )}
+            <FormField
+              id="nom-complet"
+              label="Nom complet (affiché dans l'historique)"
+              value={nomComplet}
+              onChange={(e) => setNomComplet(e.target.value)}
+              placeholder="Ex : Jean Kouassi"
+            />
+            <PrimaryButton type="submit" loading={saving}>
+              Enregistrer
+            </PrimaryButton>
+          </form>
+        )}
       </div>
 
       <div className="mt-4 flex flex-col items-center justify-center rounded-xl border border-dashed border-onyx-200 bg-white px-6 py-12 text-center">
@@ -44,9 +110,9 @@ export default async function UtilisateursPage() {
           Liste des utilisateurs et gestion des comptes
         </p>
         <p className="mt-1 max-w-sm text-sm text-onyx-400">
-          La liste complète des comptes de l&apos;équipe, avec traçabilité des
-          créations/modifications, sera développée avec le module Historique
-          (étape 9).
+          La liste complète des comptes de l&apos;équipe sera développée
+          ultérieurement ; l&apos;historique (menu Historique) trace déjà
+          les actions de chaque utilisateur connecté.
         </p>
       </div>
     </div>

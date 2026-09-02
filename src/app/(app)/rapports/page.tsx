@@ -1,11 +1,5 @@
-import { PlaceholderPage } from "@/components/PlaceholderPage";
+import { RapportsManager } from "@/components/rapports/RapportsManager";
 
-export default function Page() {
-  return (
-    <PlaceholderPage
-      title="Rapports"
-      description="Rapports filtrables sur stock, ventes, achats, marges, encaissements et decaissements."
-      step={10}
-    />
-  );
+export default function RapportsPage() {
+  return <RapportsManager />;
 }

@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { logSupabaseError } from "@/lib/errors";
 import { Modal } from "@/components/ui/Modal";
 import { FormField } from "@/components/auth/FormField";
 import { TextareaField, SelectField } from "@/components/ui/FormControls";
@@ -70,6 +71,9 @@ export function ArticleFormModal({
   const [error, setError] = useState<string | null>(null);
 
   const isEdition = Boolean(initialValues.id);
+  const [expirationApplicable, setExpirationApplicable] = useState(
+    Boolean(initialValues.date_expiration)
+  );
 
   const sousCategoriesFiltrees = useMemo(
     () =>
@@ -99,7 +103,7 @@ export function ArticleFormModal({
       prix_achat: Number(form.prix_achat) || 0,
       prix_vente_conseille: Number(form.prix_vente_conseille) || 0,
       numero_lot: form.numero_lot.trim() || null,
-      date_expiration: form.date_expiration || null,
+      date_expiration: expirationApplicable ? form.date_expiration || null : null,
       statut: form.statut,
       observations: form.observations.trim() || null,
     };
@@ -114,7 +118,13 @@ export function ArticleFormModal({
         .update(payload)
         .eq("id", initialValues.id);
       if (error) {
-        setError("Impossible d'enregistrer les modifications.");
+        setError(
+          logSupabaseError(
+            { table: "articles", operation: "update" },
+            error,
+            "Impossible d'enregistrer les modifications. Vérifiez les informations saisies ou réessayez."
+          )
+        );
         setSaving(false);
         return;
       }
@@ -126,7 +136,13 @@ export function ArticleFormModal({
         .single();
 
       if (error || !created) {
-        setError("Impossible de créer l'article.");
+        setError(
+          logSupabaseError(
+            { table: "articles", operation: "insert" },
+            error,
+            "Impossible d'enregistrer l'article. Vérifiez les informations saisies ou réessayez."
+          )
+        );
         setSaving(false);
         return;
       }
@@ -168,20 +184,29 @@ export function ArticleFormModal({
     <Modal
       title={isEdition ? "Modifier l'article" : "Nouvel article"}
       onClose={onClose}
+      wide
     >
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-5">
         {error && <InlineBanner message={error} />}
 
-        <FormField
-          id="designation"
-          label="Désignation"
-          required
-          value={form.designation}
-          onChange={(e) => setForm({ ...form, designation: e.target.value })}
-          placeholder="Ex : Tensiomètre électronique X200"
-        />
+        <div className="grid grid-cols-1 gap-x-6 gap-y-4 lg:grid-cols-2">
+          <FormField
+            id="designation"
+            label="Désignation"
+            required
+            value={form.designation}
+            onChange={(e) => setForm({ ...form, designation: e.target.value })}
+            placeholder="Ex : Tensiomètre électronique X200"
+          />
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <FormField
+            id="marque"
+            label="Marque"
+            value={form.marque}
+            onChange={(e) => setForm({ ...form, marque: e.target.value })}
+            placeholder="Optionnel"
+          />
+
           <SelectField
             id="categorie"
             label="Catégorie"
@@ -218,16 +243,6 @@ export function ArticleFormModal({
               </option>
             ))}
           </SelectField>
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <FormField
-            id="marque"
-            label="Marque"
-            value={form.marque}
-            onChange={(e) => setForm({ ...form, marque: e.target.value })}
-            placeholder="Optionnel"
-          />
 
           <SelectField
             id="fournisseur"
@@ -244,9 +259,22 @@ export function ArticleFormModal({
               </option>
             ))}
           </SelectField>
-        </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <SelectField
+            id="statut"
+            label="Statut"
+            value={form.statut}
+            onChange={(e) => setForm({ ...form, statut: e.target.value })}
+          >
+            {statutsArticle
+              .filter((s) => s.actif)
+              .map((s) => (
+                <option key={s.valeur} value={s.valeur}>
+                  {s.valeur}
+                </option>
+              ))}
+          </SelectField>
+
           <FormField
             id="prix-achat"
             label="Prix d'achat (FCFA)"
@@ -269,6 +297,7 @@ export function ArticleFormModal({
             }
             placeholder="0"
           />
+
           <FormField
             id="stock-minimum"
             label="Stock minimum"
@@ -281,9 +310,6 @@ export function ArticleFormModal({
             }
             placeholder="0"
           />
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <FormField
             id="numero-lot"
             label="Numéro de lot"
@@ -291,33 +317,40 @@ export function ArticleFormModal({
             onChange={(e) =>
               setForm({ ...form, numero_lot: e.target.value })
             }
-            placeholder="Optionnel"
+            placeholder="Optionnel — si applicable"
           />
-          <FormField
-            id="date-expiration"
-            label="Date d'expiration"
-            type="date"
-            value={form.date_expiration}
-            onChange={(e) =>
-              setForm({ ...form, date_expiration: e.target.value })
-            }
-          />
-        </div>
 
-        <SelectField
-          id="statut"
-          label="Statut"
-          value={form.statut}
-          onChange={(e) => setForm({ ...form, statut: e.target.value })}
-        >
-          {statutsArticle
-            .filter((s) => s.actif)
-            .map((s) => (
-              <option key={s.valeur} value={s.valeur}>
-                {s.valeur}
-              </option>
-            ))}
-        </SelectField>
+          <div className="lg:col-span-2">
+            <div className="flex items-center justify-between">
+              <label className="block text-sm font-medium text-onyx-700">
+                Date d&apos;expiration
+              </label>
+              <label className="flex items-center gap-1.5 text-xs text-onyx-500">
+                <input
+                  type="checkbox"
+                  checked={!expirationApplicable}
+                  onChange={(e) => {
+                    setExpirationApplicable(!e.target.checked);
+                    if (e.target.checked) {
+                      setForm({ ...form, date_expiration: "" });
+                    }
+                  }}
+                  className="h-4 w-4 rounded border-onyx-300 text-onyx-900 focus:ring-accent-400"
+                />
+                Non applicable (ex : mobilier, équipement durable)
+              </label>
+            </div>
+            <input
+              type="date"
+              disabled={!expirationApplicable}
+              value={form.date_expiration}
+              onChange={(e) =>
+                setForm({ ...form, date_expiration: e.target.value })
+              }
+              className="mt-1.5 w-full rounded-lg border border-onyx-200 px-3.5 py-2.5 text-[15px] outline-none focus:border-accent-400 focus:ring-2 focus:ring-accent-100 disabled:cursor-not-allowed disabled:bg-onyx-50 disabled:text-onyx-300"
+            />
+          </div>
+        </div>
 
         <TextareaField
           id="observations"
@@ -330,7 +363,7 @@ export function ArticleFormModal({
         />
 
         {!isEdition && (
-          <div className="rounded-lg border border-onyx-100 bg-onyx-50/50 p-3.5">
+          <div className="rounded-lg border border-onyx-100 bg-onyx-50/50 p-4">
             <p className="text-sm font-medium text-onyx-700">
               Stock initial (optionnel)
             </p>
@@ -338,7 +371,7 @@ export function ArticleFormModal({
               Renseignez la quantité de départ par emplacement, si vous en
               avez déjà en stock.
             </p>
-            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
               {emplacementsActifs.map((empl: RefEmplacement) => (
                 <div key={empl.id}>
                   <label className="mb-1 block text-xs font-medium text-onyx-500">

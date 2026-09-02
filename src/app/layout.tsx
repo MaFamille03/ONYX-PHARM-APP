@@ -18,6 +18,13 @@ export const metadata: Metadata = {
   description:
     "Application de gestion intégrée ONYX PHARM : stock, achats, ventes, caisse et rapports.",
   manifest: "/manifest.json",
+  icons: {
+    icon: [
+      { url: "/onyx-pharm-icon.png", type: "image/png" },
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+    ],
+    apple: "/icon-192.png",
+  },
 };
 
 export const viewport: Viewport = {

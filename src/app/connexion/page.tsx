@@ -17,7 +17,13 @@ function ConnexionForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(
+    searchParams.get("erreur") === "compte_desactive"
+      ? "Ce compte a été désactivé. Contactez un administrateur ONYX PHARM."
+      : searchParams.get("erreur") === "compte_supprime"
+        ? "Ce compte a été supprimé."
+        : null
+  );
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

@@ -1,11 +1,5 @@
-import { PlaceholderPage } from "@/components/PlaceholderPage";
+import { HistoriqueManager } from "@/components/historique/HistoriqueManager";
 
-export default function Page() {
-  return (
-    <PlaceholderPage
-      title="Historique"
-      description="Journal complet des actions effectuees par les utilisateurs dans l application."
-      step={9}
-    />
-  );
+export default function HistoriquePage() {
+  return <HistoriqueManager />;
 }

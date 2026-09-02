@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Plus, ArrowLeft, Trash2, FileOutput } from "lucide-react";
+import { Plus, ArrowLeft, Trash2, FileOutput, Printer } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { PrimaryButton, SecondaryButton } from "@/components/ui/Buttons";
 import { InlineBanner, StatutBadge } from "@/components/ui/Badges";
 import { ClientSelect } from "@/components/tiers/ClientSelect";
+import { DocumentImprimable } from "@/components/documents/DocumentImprimable";
 
 type DevisRow = {
   id: string;
@@ -422,6 +423,7 @@ function DevisDetail({
   const [loading, setLoading] = useState(true);
   const [converting, setConverting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [impressionOpen, setImpressionOpen] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -562,6 +564,13 @@ function DevisDetail({
         )}
       </div>
 
+      <div className="mt-3">
+        <SecondaryButton onClick={() => setImpressionOpen(true)}>
+          <Printer size={16} />
+          Imprimer
+        </SecondaryButton>
+      </div>
+
       {error && (
         <div className="mt-3">
           <InlineBanner
@@ -601,6 +610,24 @@ function DevisDetail({
           </tbody>
         </table>
       </div>
+
+      {impressionOpen && (
+        <DocumentImprimable
+          typeDocument="Devis"
+          reference={devis.reference}
+          date={devis.date_devis}
+          tiersLabel="Client"
+          tiersNom={devis.clients?.nom}
+          lignes={lignes.map((l) => ({
+            designation: l.articles?.designation ?? "",
+            quantite: l.quantite,
+            prixUnitaire: l.prix_unitaire,
+            montant: l.montant_ligne,
+          }))}
+          montantTotal={devis.montant_total}
+          onClose={() => setImpressionOpen(false)}
+        />
+      )}
     </div>
   );
 }

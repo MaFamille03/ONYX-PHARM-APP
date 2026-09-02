@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 export function AuthCard({
   title,
   subtitle,
@@ -13,10 +15,15 @@ export function AuthCard({
     <div className="flex min-h-screen items-center justify-center bg-onyx-950 px-4 py-10">
       <div className="w-full max-w-sm">
         <div className="mb-6 flex flex-col items-center gap-2.5">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent-400">
-            <span className="text-base font-bold tracking-tight text-onyx-950">
-              OP
-            </span>
+          <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-white p-2">
+            <Image
+              src="/onyx-pharm-icon.png"
+              alt="ONYX PHARM"
+              width={48}
+              height={48}
+              priority
+              className="h-full w-full object-contain"
+            />
           </div>
           <div className="text-center">
             <p className="text-sm font-semibold tracking-tight text-white">

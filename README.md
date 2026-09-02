@@ -498,3 +498,211 @@ vous enregistrez le paiement dans Achats ou Ventes.
    « Depuis le début ») et vérifiez que le solde se met à jour
 6. Changez de période (Aujourd'hui / Cette semaine / Ce mois) et vérifiez
    que les totaux se filtrent correctement
+
+---
+
+## ÉTAPE 9 — Traçabilité, sécurité & annulations
+
+Cette étape renforce la sécurité et la traçabilité de l'application :
+
+- **Paramètres > Sécurité** : définissez un **second mot de passe**,
+  distinct du mot de passe de connexion, partagé par tous les
+  utilisateurs de l'application. Il protège les opérations sensibles.
+- **Historique** : journal réel des actions importantes — pour l'instant,
+  toute modification du prix d'achat ou du prix de vente conseillé d'un
+  article, et toute annulation de vente/achat déjà validé, y sont
+  automatiquement enregistrées avec l'utilisateur, la date, l'ancienne et
+  la nouvelle valeur
+- **Utilisateurs** : vous pouvez maintenant renseigner votre nom complet,
+  affiché dans l'historique à la place de votre e-mail
+- **Annulation sécurisée des ventes et achats déjà validés** : un nouveau
+  bouton « Annuler la vente/l'achat » apparaît même après validation. Il
+  **restitue automatiquement le stock concerné** et exige le second mot
+  de passe. Un achat ne peut pas être annulé si le stock reçu a déjà été
+  utilisé ailleurs (vendu, transféré...) — le système le détecte et
+  refuse proprement.
+
+**Aucune donnée n'est jamais supprimée silencieusement** : annuler une
+opération change son statut en "Annulé" et conserve tout son historique,
+conformément au cahier des charges.
+
+### Procédure
+
+1. Dézippez ce zip par-dessus votre dossier de travail
+2. GitHub Desktop → commit (`Étape 9 : traçabilité, sécurité et
+   annulations`) → Push
+3. **Action Supabase requise** : exécutez le nouveau fichier
+   `supabase/migrations/0009_securite_annulations.sql` dans le SQL Editor
+
+### À tester
+
+1. Allez dans **Paramètres > Sécurité** et définissez un second mot de
+   passe
+2. Allez dans **Utilisateurs** et renseignez votre nom complet
+3. Modifiez le prix de vente conseillé d'un article (Stock > Articles) →
+   allez dans **Historique** : la modification doit apparaître avec votre
+   nom, l'ancien et le nouveau prix
+4. Ouvrez une vente déjà validée → cliquez **Annuler la vente** → entrez
+   le second mot de passe → vérifiez dans **Stock > Stocks** que la
+   quantité a bien été restituée, et que l'annulation apparaît dans
+   **Historique**
+5. Essayez avec un mauvais mot de passe : le système doit refuser
+   clairement
+6. Faites de même avec un achat déjà réceptionné, puis essayez d'annuler
+   un achat dont le stock reçu a déjà été vendu ailleurs : le système
+   doit refuser avec un message explicite
+
+---
+
+## ÉTAPE 10 — Rapports, Import/Export & Tableau de bord final
+
+Dernière étape du projet : elle relie toutes les données déjà saisies
+dans une vue d'ensemble exploitable, et ajoute les outils d'échange de
+données et de documents imprimables.
+
+- **Tableau de bord** : maintenant connecté à de vraies données — chiffre
+  d'affaires, marge, valeur du stock, encaissements/décaissements,
+  créances, dettes, alertes de stock, ventes et achats récents — avec
+  filtre par période (aujourd'hui / semaine / mois / tout)
+- **Rapports** : 5 onglets (Stock, Ventes, Achats, Caisse, Créances/
+  Dettes), chacun exportable en un clic vers Excel
+- **Import/Export** :
+  - Export Excel pour Articles, Ventes, Achats, Encaissements,
+    Décaissements
+  - Import d'articles depuis un modèle Excel téléchargeable, avec
+    contrôle automatique des erreurs avant import (désignation vide,
+    quantité/prix invalides, catégorie/fournisseur/emplacement
+    inexistants, doublons, dates incorrectes) et aperçu ligne par ligne
+- **Documents imprimables** : chaque vente, achat et devis validé
+  dispose désormais d'un bouton **Imprimer**, qui ouvre un aperçu
+  professionnel exportable directement en PDF via la fonction
+  d'impression du navigateur (« Enregistrer au format PDF »)
+
+### Procédure
+
+1. Dézippez ce zip par-dessus votre dossier de travail
+2. GitHub Desktop → commit (`Étape 10 : rapports, import/export et
+   tableau de bord final`) → Push
+3. **Aucune action Supabase nécessaire** — cette étape s'appuie
+   entièrement sur les données déjà en place
+
+### À tester
+
+1. Ouvrez le **Tableau de bord** : vérifiez que les chiffres
+   correspondent à vos données, changez de période
+2. Allez dans **Rapports**, parcourez les 5 onglets, exportez-en un vers
+   Excel et ouvrez le fichier téléchargé
+3. Allez dans **Import/Export** → téléchargez le modèle → remplissez
+   quelques lignes (avec une erreur volontaire sur l'une d'elles, par
+   exemple un emplacement inexistant) → importez-le → vérifiez que
+   l'erreur est bien détectée et que seules les lignes valides sont
+   proposées à l'import
+4. Ouvrez une vente validée → cliquez **Imprimer** → vérifiez l'aperçu →
+   testez « Enregistrer au format PDF » depuis la fenêtre d'impression
+   de votre navigateur
+5. Faites de même pour un achat et un devis
+
+---
+
+## 🎉 Projet complet
+
+Les 10 étapes du cahier des charges ONYX PHARM sont livrées. L'application
+couvre l'intégralité du cycle métier : articles, stock, transferts,
+inventaires, achats, ventes, caisse, créances, dettes, traçabilité,
+sécurité, rapports et documents — le tout responsive, sécurisé et déployé
+sur des services gratuits (GitHub, Vercel, Supabase).
+
+Consultez `ETAPE.md` à tout moment pour un rappel de ce qui a été livré.
+
+---
+
+## ÉTAPE 11 — Audit global, catalogue réel & finalisation
+
+Suite à votre demande d'audit complet, voici ce qui a été corrigé et ajouté.
+
+### Le bug des permissions (403 / `permission denied`)
+
+**Cause exacte :** les policies RLS (qui décident *qui* a le droit de lire/
+écrire une ligne) avaient été correctement créées dès l'étape 2. Mais
+PostgreSQL exige **en plus** un `GRANT` de base sur chaque table pour le
+rôle `authenticated` — sans lui, la policy RLS ne sert à rien, la requête
+est bloquée avant même d'être évaluée. C'est exactement ce que vous avez
+rencontré sur `emplacements`, et cela touchait potentiellement toutes les
+tables créées depuis l'étape 2.
+
+La migration `0010_audit_privileges.sql` corrige ce point une fois pour
+toutes : elle accorde les privilèges sur **toutes les tables existantes**,
+et configure les **privilèges par défaut** pour qu'aucune table créée à
+l'avenir ne reproduise ce problème. RLS reste actif partout — rien n'a été
+désactivé pour "faire marcher" l'application.
+
+### Ce qui a été ajouté
+
+- **Logo officiel** ONYX PHARM extrait de votre catalogue, intégré partout
+  (connexion, menu, favicon, factures/bons imprimés)
+- **Catalogue réel** : les catégories et ~130 articles de votre catalogue
+  2026 sont maintenant préchargés dans Stock > Articles (prix à compléter,
+  puisque le catalogue ne les indique pas)
+- **Présentation initiale** : les nouveaux comptes voient un écran de
+  bienvenue présentant les modules ; revisible depuis Paramètres > Général
+- **Formulaire Article élargi** sur ordinateur — la grille utilise
+  maintenant toute la largeur disponible, avec une case à cocher claire
+  pour marquer un article "Date d'expiration non applicable"
+- **Paramètres réorganisés** en 7 onglets : Général, Emplacements,
+  Catégories, Listes, Entrepôt (à compléter), Sécurité, Compte
+- **Zone dangereuse** (Paramètres > Compte) : désactivation de compte
+  (historique conservé, comme "Jean Kouassi — Compte désactivé") et
+  suppression définitive (données personnelles anonymisées, documents
+  commerciaux préservés), toutes deux protégées par le second mot de passe
+  et une double confirmation
+
+### Limite technique honnête à connaître
+
+La "suppression définitive" anonymise vos données personnelles (nom) dans
+l'application et désactive l'accès — c'est tout ce qu'une application
+cliente peut faire en toute sécurité. La suppression complète du compte
+d'authentification lui-même (l'entrée dans Supabase Auth) nécessite une
+clé d'administration que je ne peux pas intégrer côté navigateur sans
+créer une faille de sécurité majeure (n'importe qui pourrait alors
+supprimer n'importe quel compte). Pour une suppression totale du compte
+d'authentification, il faudra le faire une fois depuis le tableau de bord
+Supabase (Authentication > Users), ce qui prend quelques secondes.
+
+### Ce qui reste à faire de votre côté
+
+- Les **prix d'achat et de vente** des ~130 articles importés sont à 0 —
+  le catalogue ne les indiquait pas. À compléter progressivement dans
+  Stock > Articles selon vos tarifs réels.
+- Les **informations de l'entrepôt** (Paramètres > Entrepôt) sont vides,
+  volontairement — à remplir dès que vous les aurez.
+- Si vous avez un **logo plus récent ou en meilleure définition**,
+  transmettez-le et je le remplacerai partout.
+
+### Procédure
+
+1. Dézippez ce zip par-dessus votre dossier de travail
+2. GitHub Desktop → commit (`Étape 11 : audit, catalogue et finalisation`)
+   → Push
+3. **Action Supabase requise** : exécutez dans l'ordre les 3 nouveaux
+   fichiers SQL du dossier `supabase/migrations/` :
+   - `0010_audit_privileges.sql` (la correction critique — à exécuter en
+     priorité)
+   - `0011_catalogue_onyx_pharm.sql`
+   - `0012_comptes_entreprise.sql`
+
+### À tester
+
+1. Essayez de créer un emplacement, une catégorie, un article : les
+   erreurs 403 doivent avoir disparu
+2. Allez dans **Stock > Articles** : le catalogue ONYX PHARM doit
+   apparaître (environ 130 articles classés par catégorie)
+3. Créez un **nouveau compte de test** : la présentation doit s'afficher
+   automatiquement à la première connexion
+4. Ouvrez **Stock > Articles > Nouvel article** sur un écran d'ordinateur :
+   le formulaire doit utiliser toute la largeur, en 2 colonnes
+5. Testez la case "Non applicable" sur la date d'expiration
+6. Allez dans **Paramètres > Général** : le logo et les informations de
+   l'entreprise doivent s'afficher
+7. Testez la **zone dangereuse** (Paramètres > Compte) avec un compte de
+   test — vérifiez qu'un compte désactivé ne peut plus se reconnecter et
+   que l'historique reste lisible

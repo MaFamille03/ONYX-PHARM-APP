@@ -18,5 +18,22 @@ export default async function AppLayout({
     redirect("/connexion");
   }
 
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("nom_complet, compte_statut")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  // Un compte désactivé ou supprimé ne doit plus pouvoir se connecter,
+  // même si la session d'authentification est encore valide.
+  if (profile?.compte_statut && profile.compte_statut !== "Actif") {
+    await supabase.auth.signOut();
+    redirect(
+      profile.compte_statut === "Désactivé"
+        ? "/connexion?erreur=compte_desactive"
+        : "/connexion?erreur=compte_supprime"
+    );
+  }
+
   return <AppShell userEmail={user.email ?? null}>{children}</AppShell>;
 }

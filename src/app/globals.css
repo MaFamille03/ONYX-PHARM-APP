@@ -45,3 +45,25 @@ textarea {
     border-radius: 9999px;
   }
 }
+
+/* Impression de documents (factures, bons, devis) : seule la zone marquée
+   .zone-impression reste visible, tout le reste de l'application (menu,
+   barres de navigation) est masqué. */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .zone-impression,
+  .zone-impression * {
+    visibility: visible;
+  }
+  .zone-impression {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+  }
+  .no-print {
+    display: none !important;
+  }
+}
