@@ -756,3 +756,30 @@ vide. Ces deux opérations vérifient désormais explicitement leur succès.
    navigateur (**F12 → Console**) : vous verrez désormais `[ONYX PHARM]
    Erreur Supabase` avec le code exact — partagez-le-moi si besoin, ce
    sera immédiatement exploitable
+
+---
+
+## ÉTAPE 14 — Réparation des comptes sans profil
+
+Si "Impossible d'enregistrer l'article" persiste malgré l'étape 13, la
+cause probable est différente : votre compte de connexion a été créé
+avant que la table des profils n'existe dans la base (lors des tout
+premiers tests, à l'étape 1). Votre compte fonctionne pour vous
+connecter, mais n'a pas de "fiche profil" — or chaque article créé essaie
+de s'y rattacher pour savoir qui l'a créé. Sans cette fiche, l'insertion
+est bloquée (violation de contrainte, pas un problème de droits).
+
+### Procédure
+
+1. Dézippez ce zip par-dessus votre dossier de travail
+2. GitHub Desktop → commit (`Étape 14 : réparation des profils`) → Push
+3. **Action Supabase requise** : exécutez `0014_reparation_profils.sql`
+   dans le SQL Editor — il répare automatiquement tout compte concerné,
+   sans rien modifier pour les comptes déjà en ordre
+
+### À tester
+
+1. Après avoir exécuté le script, réessayez de créer un article
+2. Si ça échoue encore : ouvrez la console (**F12**), regardez le message
+   `[ONYX PHARM] Erreur Supabase`, et partagez-moi le `code` exact affiché
+   — avec cette information, la cause sera identifiée avec certitude
