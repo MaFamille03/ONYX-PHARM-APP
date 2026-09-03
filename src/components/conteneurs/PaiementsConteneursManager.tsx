@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { CreditCard } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { logSupabaseError } from "@/lib/errors";
+import { useRealtimeRefresh } from "@/lib/hooks/useRealtimeRefresh";
 import { Modal } from "@/components/ui/Modal";
 import { SelectField } from "@/components/ui/FormControls";
 import { PrimaryButton } from "@/components/ui/Buttons";
@@ -79,6 +80,8 @@ export function PaiementsConteneursManager() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useRealtimeRefresh(["paiements_conteneurs", "conteneurs"], load);
 
   function ouvrirPaiement(dette: DetteRow & { fournisseur_nom: string }) {
     setModalConteneur(dette);

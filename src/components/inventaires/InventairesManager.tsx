@@ -1,20 +1,24 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Plus, ArrowLeft, CheckCircle2 } from "lucide-react";
+import { Plus, ArrowLeft, CheckCircle2, Trash2, Printer } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { logSupabaseError } from "@/lib/errors";
 import { Modal } from "@/components/ui/Modal";
 import { SelectField } from "@/components/ui/FormControls";
 import { PrimaryButton, SecondaryButton } from "@/components/ui/Buttons";
 import { InlineBanner, StatutBadge } from "@/components/ui/Badges";
+import { PinModal } from "@/components/securite/PinModal";
+import { InventairePrintable } from "@/components/inventaires/InventairePrintable";
 import { useReferenceData } from "@/lib/hooks/useReferenceData";
+import { useRealtimeRefresh } from "@/lib/hooks/useRealtimeRefresh";
 
 type InventaireRow = {
   id: string;
   reference: string;
   statut: string;
   created_at: string;
+  date_inventaire: string;
   emplacements: { nom: string } | null;
 };
 
@@ -28,7 +32,7 @@ type LigneRow = {
   articles: { designation: string } | null;
 };
 
-export function InventairesManager() {
+export function InventairesManager({ embarque }: { embarque?: boolean } = {}) {
   const supabase = createClient();
   const { emplacements } = useReferenceData();
   const emplacementsActifs = emplacements.filter((e) => e.actif);
@@ -39,6 +43,9 @@ export function InventairesManager() {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [emplacementId, setEmplacementId] = useState("");
+  const [dateInventaire, setDateInventaire] = useState(
+    new Date().toISOString().slice(0, 10)
+  );
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,7 +53,7 @@ export function InventairesManager() {
     setLoading(true);
     const { data } = await supabase
       .from("inventaires")
-      .select("id, reference, statut, created_at, emplacements(nom)")
+      .select("id, reference, statut, created_at, date_inventaire, emplacements(nom)")
       .order("created_at", { ascending: false });
     if (data) setInventaires(data as unknown as InventaireRow[]);
     setLoading(false);
@@ -56,6 +63,8 @@ export function InventairesManager() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useRealtimeRefresh(["inventaires"], load);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -91,10 +100,11 @@ export function InventairesManager() {
       .insert({
         reference: refData,
         emplacement_id: emplacementId,
+        date_inventaire: dateInventaire,
         statut: "Brouillon",
         created_by: user?.id ?? null,
       })
-      .select("id, reference, statut, created_at, emplacements(nom)")
+      .select("id, reference, statut, created_at, date_inventaire, emplacements(nom)")
       .single();
 
     if (invError || !inventaire) {
@@ -170,9 +180,11 @@ export function InventairesManager() {
     <div>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-onyx-900 sm:text-2xl">
-            Inventaires
-          </h1>
+          {!embarque && (
+            <h1 className="text-xl font-semibold text-onyx-900 sm:text-2xl">
+              Inventaires
+            </h1>
+          )}
           <p className="mt-1 text-sm text-onyx-500">
             Comptez le stock réel par emplacement et ajustez les écarts.
           </p>
@@ -180,6 +192,7 @@ export function InventairesManager() {
         <PrimaryButton
           onClick={() => {
             setEmplacementId("");
+            setDateInventaire(new Date().toISOString().slice(0, 10));
             setError(null);
             setModalOpen(true);
           }}
@@ -214,7 +227,7 @@ export function InventairesManager() {
                     {inv.reference} — {inv.emplacements?.nom}
                   </p>
                   <p className="text-xs text-onyx-400">
-                    {new Date(inv.created_at).toLocaleDateString("fr-FR")}
+                    {new Date(inv.date_inventaire).toLocaleDateString("fr-FR")}
                   </p>
                 </div>
                 <StatutBadge statut={inv.statut} />
@@ -242,6 +255,18 @@ export function InventairesManager() {
                 </option>
               ))}
             </SelectField>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-onyx-700">
+                Date de l&apos;inventaire
+              </label>
+              <input
+                type="date"
+                required
+                value={dateInventaire}
+                onChange={(e) => setDateInventaire(e.target.value)}
+                className="w-full rounded-lg border border-onyx-200 px-3.5 py-2.5 text-[15px] outline-none focus:border-accent-400 focus:ring-2 focus:ring-accent-100"
+              />
+            </div>
             <p className="text-xs text-onyx-400">
               Toutes les quantités théoriques actuelles seront chargées
               automatiquement ; vous n&apos;aurez plus qu&apos;à saisir les
@@ -280,6 +305,8 @@ function InventaireDetail({
   const [validating, setValidating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [modifs, setModifs] = useState<Record<string, string>>({});
+  const [suppressionOpen, setSuppressionOpen] = useState(false);
+  const [impressionOpen, setImpressionOpen] = useState(false);
 
   const estBrouillon = inventaire.statut === "Brouillon";
 
@@ -348,6 +375,24 @@ function InventaireDetail({
     onBack();
   }
 
+  async function confirmerSuppression(pin: string) {
+    const { error } = await supabase.rpc("supprimer_inventaire", {
+      p_inventaire_id: inventaire.id,
+      p_pin: estBrouillon ? null : pin,
+    });
+    if (error) {
+      throw new Error(
+        logSupabaseError(
+          { table: "inventaires", operation: "rpc supprimer_inventaire" },
+          error,
+          "Impossible de supprimer cet inventaire."
+        )
+      );
+    }
+    setSuppressionOpen(false);
+    onBack();
+  }
+
   const totalEcarts = lignes.filter((l) => {
     const val =
       modifs[l.id] !== undefined ? Number(modifs[l.id]) : l.quantite_reelle;
@@ -376,21 +421,34 @@ function InventaireDetail({
           </p>
         </div>
 
-        {estBrouillon && (
-          <div className="flex gap-2">
-            <SecondaryButton
-              onClick={enregistrerComptages}
-              loading={saving}
-              disabled={Object.keys(modifs).length === 0}
-            >
-              Enregistrer les comptages
-            </SecondaryButton>
-            <PrimaryButton onClick={validerInventaire} loading={validating}>
-              <CheckCircle2 size={16} />
-              Valider l&apos;inventaire
-            </PrimaryButton>
-          </div>
-        )}
+        <div className="flex gap-2">
+          <SecondaryButton onClick={() => setImpressionOpen(true)}>
+            <Printer size={16} />
+            Exporter en PDF
+          </SecondaryButton>
+          <SecondaryButton
+            onClick={() => setSuppressionOpen(true)}
+            className="border-red-200 text-red-600 hover:bg-red-50"
+          >
+            <Trash2 size={16} />
+            Supprimer
+          </SecondaryButton>
+          {estBrouillon && (
+            <>
+              <SecondaryButton
+                onClick={enregistrerComptages}
+                loading={saving}
+                disabled={Object.keys(modifs).length === 0}
+              >
+                Enregistrer les comptages
+              </SecondaryButton>
+              <PrimaryButton onClick={validerInventaire} loading={validating}>
+                <CheckCircle2 size={16} />
+                Valider l&apos;inventaire
+              </PrimaryButton>
+            </>
+          )}
+        </div>
       </div>
 
       {error && (
@@ -481,6 +539,56 @@ function InventaireDetail({
           </div>
         )}
       </div>
+
+      {suppressionOpen && estBrouillon && (
+        <Modal title="Supprimer cet inventaire" onClose={() => setSuppressionOpen(false)}>
+          <p className="text-sm text-onyx-600">
+            Supprimer définitivement l&apos;inventaire{" "}
+            <strong>{inventaire.reference}</strong> ? Ce brouillon n&apos;a
+            encore modifié aucun stock, la suppression est donc sans risque
+            mais irréversible.
+          </p>
+          <div className="mt-5 flex gap-3">
+            <SecondaryButton onClick={() => setSuppressionOpen(false)} className="flex-1">
+              Annuler
+            </SecondaryButton>
+            <PrimaryButton
+              onClick={() => confirmerSuppression("")}
+              className="flex-1 bg-red-600 hover:bg-red-700"
+            >
+              Supprimer
+            </PrimaryButton>
+          </div>
+        </Modal>
+      )}
+
+      {suppressionOpen && !estBrouillon && (
+        <PinModal
+          title="Supprimer cet inventaire"
+          message={`Cet inventaire est déjà validé : le supprimer annulera les ${totalEcarts} écart(s) déjà appliqué(s) au stock. Cette action est irréversible.`}
+          onCancel={() => setSuppressionOpen(false)}
+          onConfirm={confirmerSuppression}
+        />
+      )}
+
+      {impressionOpen && (
+        <InventairePrintable
+          reference={inventaire.reference}
+          dateInventaire={inventaire.date_inventaire}
+          emplacementNom={inventaire.emplacements?.nom ?? "—"}
+          statut={inventaire.statut}
+          lignes={lignes.map((l) => ({
+            designation: l.articles?.designation ?? "",
+            quantite_theorique: l.quantite_theorique,
+            quantite_reelle:
+              modifs[l.id] !== undefined ? Number(modifs[l.id]) : l.quantite_reelle,
+            ecart:
+              (modifs[l.id] !== undefined ? Number(modifs[l.id]) : l.quantite_reelle) -
+              l.quantite_theorique,
+          }))}
+          onClose={() => setImpressionOpen(false)}
+        />
+      )}
     </div>
   );
 }

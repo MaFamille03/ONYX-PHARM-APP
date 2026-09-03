@@ -11,6 +11,7 @@ import { StatutBadge, InlineBanner } from "@/components/ui/Badges";
 import { PrimaryButton, SecondaryButton } from "@/components/ui/Buttons";
 import { FournisseurSelect } from "@/components/tiers/FournisseurSelect";
 import { useReferenceData } from "@/lib/hooks/useReferenceData";
+import { useRealtimeRefresh } from "@/lib/hooks/useRealtimeRefresh";
 
 type ConteneurRow = {
   id: string;
@@ -121,6 +122,8 @@ function ListeConteneurs({
     load();
   }, [load]);
 
+  useRealtimeRefresh(["conteneurs", "stocks"], load);
+
   return (
     <div>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -202,7 +205,7 @@ function ListeConteneurs({
   );
 }
 
-function NouveauConteneur({ onDone }: { onDone: () => void }) {
+export function NouveauConteneur({ onDone }: { onDone: () => void }) {
   const supabase = createClient();
   const { emplacements, categories, sousCategories, fournisseurs, statutsArticle } =
     useReferenceData();
@@ -772,6 +775,11 @@ function ConteneurDetail({
   const [paiements, setPaiements] = useState<
     { id: string; montant: number; mode_paiement: string; date_paiement: string }[]
   >([]);
+  const [coutRevient, setCoutRevient] = useState<{
+    stock_restant: number;
+    revenu_realise: number;
+    marge: number | null;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -782,7 +790,7 @@ function ConteneurDetail({
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [conteneurRes, lignesRes, paiementsRes] = await Promise.all([
+    const [conteneurRes, lignesRes, paiementsRes, coutRevientRes] = await Promise.all([
       supabase
         .from("conteneurs")
         .select(
@@ -800,12 +808,18 @@ function ConteneurDetail({
         .select("id, montant, mode_paiement, date_paiement")
         .eq("conteneur_id", conteneurId)
         .order("date_paiement", { ascending: false }),
+      supabase
+        .from("v_cout_revient_conteneurs")
+        .select("stock_restant, revenu_realise, marge")
+        .eq("conteneur_id", conteneurId)
+        .maybeSingle(),
     ]);
 
     if (conteneurRes.data)
       setConteneur(conteneurRes.data as unknown as ConteneurRow & { fournisseur_id: string | null });
     if (lignesRes.data) setLignes(lignesRes.data as unknown as typeof lignes);
     if (paiementsRes.data) setPaiements(paiementsRes.data);
+    if (coutRevientRes.data) setCoutRevient(coutRevientRes.data);
     setLoading(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conteneurId]);
@@ -933,6 +947,55 @@ function ConteneurDetail({
           suivi de paiement possible.
         </p>
       )}
+
+      {/* Coût de revient : uniquement calculable quand le conteneur est
+          entièrement écoulé (plus aucun stock) et qu'un montant d'achat a
+          été renseigné. Toujours recalculé à la volée. */}
+      <div className="mt-5 rounded-xl border border-onyx-100 bg-white p-4">
+        <h2 className="text-sm font-semibold text-onyx-800">
+          Coût de revient du conteneur
+        </h2>
+        {!montantDefini ? (
+          <p className="mt-1.5 text-sm text-onyx-400">
+            Non calculable : aucun montant d&apos;achat renseigné pour ce
+            conteneur.
+          </p>
+        ) : coutRevient && coutRevient.stock_restant > 0 ? (
+          <p className="mt-1.5 text-sm text-onyx-400">
+            Conteneur pas encore entièrement écoulé ({coutRevient.stock_restant}{" "}
+            unité{coutRevient.stock_restant > 1 ? "s" : ""} restante
+            {coutRevient.stock_restant > 1 ? "s" : ""}) — le coût de revient
+            sera calculé automatiquement une fois tout vendu.
+          </p>
+        ) : coutRevient ? (
+          <div className="mt-3 grid grid-cols-3 gap-3">
+            <div className="text-center">
+              <p className="text-sm font-medium text-onyx-700">
+                {coutRevient.revenu_realise.toLocaleString("fr-FR")}
+              </p>
+              <p className="text-xs text-onyx-400">Revenu réalisé</p>
+            </div>
+            <div className="text-center">
+              <p className="text-sm font-medium text-onyx-700">
+                {conteneur.montant_achat_global!.toLocaleString("fr-FR")}
+              </p>
+              <p className="text-xs text-onyx-400">Coût d&apos;achat</p>
+            </div>
+            <div className="text-center">
+              <p
+                className={`text-sm font-semibold ${
+                  (coutRevient.marge ?? 0) >= 0 ? "text-emerald-600" : "text-red-500"
+                }`}
+              >
+                {(coutRevient.marge ?? 0).toLocaleString("fr-FR")}
+              </p>
+              <p className="text-xs text-onyx-400">Marge du conteneur</p>
+            </div>
+          </div>
+        ) : (
+          <p className="mt-1.5 text-sm text-onyx-400">Chargement...</p>
+        )}
+      </div>
 
       <div className="mt-5 overflow-x-auto rounded-xl border border-onyx-100 bg-white">
         <table className="w-full text-sm">

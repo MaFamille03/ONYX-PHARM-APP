@@ -53,6 +53,21 @@ fond en comble et ajoute plusieurs finitions professionnelles :
   suppression (données personnelles anonymisées, documents commerciaux
   préservés), toutes deux protégées par le second mot de passe
 
+## Étape actuelle : « Conteneurs — étape 4-A » (livrée)
+
+Suite du chantier conteneurs : coût de revient par conteneur, prix de
+vente libéré du prix d'achat, Paramètres > Seuils, date de conception du
+site, code PIN pour les suppressions sensibles (Articles, Paiements,
+Retours), et modification/suppression des brouillons de vente.
+
+## Étape actuelle : « Conteneurs — étape 5/5 : cohérence globale » (livrée)
+
+Dernière étape du chantier conteneurs : relecture complète du projet à
+la recherche d'incohérences laissées par les étapes précédentes
+(textes obsolètes, pages orphelines, calculs utilisant des champs
+décommissionnés), et correction de chacune. Le chantier "conteneurs"
+initié en 5 étapes est maintenant terminé.
+
 ## Comment mettre à jour votre dossier de travail à chaque étape
 
 Votre dossier de travail (celui connecté à GitHub Desktop) peut garder son

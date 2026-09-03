@@ -1,13 +1,15 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { CreditCard } from "lucide-react";
+import { CreditCard, Pencil, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { logSupabaseError } from "@/lib/errors";
 import { Modal } from "@/components/ui/Modal";
 import { SelectField } from "@/components/ui/FormControls";
-import { PrimaryButton } from "@/components/ui/Buttons";
+import { PrimaryButton, SecondaryButton } from "@/components/ui/Buttons";
 import { InlineBanner } from "@/components/ui/Badges";
+import { PinModal } from "@/components/securite/PinModal";
+import { useRealtimeRefresh } from "@/lib/hooks/useRealtimeRefresh";
 
 type CreanceRow = {
   vente_id: string;
@@ -41,6 +43,13 @@ export function PaiementsVentesManager() {
   const [mode, setMode] = useState("Espèces");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [editPaiement, setEditPaiement] = useState<PaiementRow | null>(null);
+  const [editMontant, setEditMontant] = useState("");
+  const [editMode, setEditMode] = useState("Espèces");
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [deletePaiement, setDeletePaiement] = useState<PaiementRow | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -86,6 +95,8 @@ export function PaiementsVentesManager() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useRealtimeRefresh(["paiements_ventes"], load);
 
   function ouvrirPaiement(creance: CreanceRow & { client_nom: string }) {
     setModalVente(creance);
@@ -134,6 +145,61 @@ export function PaiementsVentesManager() {
       return;
     }
     setModalVente(null);
+    load();
+  }
+
+  function ouvrirEdition(p: PaiementRow) {
+    setEditPaiement(p);
+    setEditMontant(String(p.montant));
+    setEditMode(p.mode_paiement);
+    setEditError(null);
+  }
+
+  async function handleEditSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editPaiement) return;
+    const val = Number(editMontant);
+    if (!val || val <= 0) {
+      setEditError("Montant invalide.");
+      return;
+    }
+    setEditSaving(true);
+    setEditError(null);
+    const { error } = await supabase
+      .from("paiements_ventes")
+      .update({ montant: val, mode_paiement: editMode })
+      .eq("id", editPaiement.id);
+    setEditSaving(false);
+    if (error) {
+      setEditError(
+        logSupabaseError(
+          { table: "paiements_ventes", operation: "update" },
+          error,
+          "Impossible de modifier ce paiement. Réessayez."
+        )
+      );
+      return;
+    }
+    setEditPaiement(null);
+    load();
+  }
+
+  async function confirmerSuppressionPaiement(pin: string) {
+    if (!deletePaiement) return;
+    const { error } = await supabase.rpc("supprimer_paiement_vente", {
+      p_paiement_id: deletePaiement.id,
+      p_pin: pin,
+    });
+    if (error) {
+      throw new Error(
+        logSupabaseError(
+          { table: "paiements_ventes", operation: "rpc supprimer_paiement_vente" },
+          error,
+          "Impossible de supprimer ce paiement."
+        )
+      );
+    }
+    setDeletePaiement(null);
     load();
   }
 
@@ -203,6 +269,7 @@ export function PaiementsVentesManager() {
                     <th className="px-4 py-3">Client</th>
                     <th className="px-4 py-3">Mode</th>
                     <th className="px-4 py-3 text-right">Montant</th>
+                    <th className="px-4 py-3" />
                   </tr>
                 </thead>
                 <tbody>
@@ -225,6 +292,24 @@ export function PaiementsVentesManager() {
                       </td>
                       <td className="px-4 py-2.5 text-right font-medium text-onyx-800">
                         {p.montant.toLocaleString("fr-FR")}
+                      </td>
+                      <td className="px-4 py-2.5 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            onClick={() => ouvrirEdition(p)}
+                            className="rounded-md p-1.5 text-onyx-400 hover:bg-onyx-100 hover:text-onyx-700"
+                            aria-label="Modifier"
+                          >
+                            <Pencil size={15} />
+                          </button>
+                          <button
+                            onClick={() => setDeletePaiement(p)}
+                            className="rounded-md p-1.5 text-red-400 hover:bg-red-50 hover:text-red-600"
+                            aria-label="Supprimer"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -283,6 +368,63 @@ export function PaiementsVentesManager() {
             </PrimaryButton>
           </form>
         </Modal>
+      )}
+
+      {editPaiement && (
+        <Modal
+          title={`Modifier le paiement — ${editPaiement.ventes?.reference}`}
+          onClose={() => setEditPaiement(null)}
+        >
+          <form onSubmit={handleEditSubmit} className="space-y-4">
+            {editError && <InlineBanner message={editError} />}
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-onyx-700">
+                Montant
+              </label>
+              <input
+                type="number"
+                min="1"
+                step="1"
+                required
+                value={editMontant}
+                onChange={(e) => setEditMontant(e.target.value)}
+                className="w-full rounded-lg border border-onyx-200 px-3.5 py-2.5 text-[15px] outline-none focus:border-accent-400 focus:ring-2 focus:ring-accent-100"
+              />
+            </div>
+            <SelectField
+              id="mode-paiement-edition"
+              label="Mode de paiement"
+              value={editMode}
+              onChange={(e) => setEditMode(e.target.value)}
+            >
+              <option value="Espèces">Espèces</option>
+              <option value="Banque">Banque</option>
+              <option value="Mobile Money">Mobile Money</option>
+              <option value="Autre">Autre</option>
+            </SelectField>
+            <div className="flex gap-3 pt-2">
+              <SecondaryButton
+                type="button"
+                onClick={() => setEditPaiement(null)}
+                className="flex-1"
+              >
+                Annuler
+              </SecondaryButton>
+              <PrimaryButton type="submit" loading={editSaving} className="flex-1">
+                Enregistrer
+              </PrimaryButton>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {deletePaiement && (
+        <PinModal
+          title="Supprimer ce paiement"
+          message={`Supprimer le paiement de ${deletePaiement.montant.toLocaleString("fr-FR")} FCFA sur ${deletePaiement.ventes?.reference} ? Le décaissement/encaissement lié sera aussi retiré.`}
+          onCancel={() => setDeletePaiement(null)}
+          onConfirm={confirmerSuppressionPaiement}
+        />
       )}
     </div>
   );

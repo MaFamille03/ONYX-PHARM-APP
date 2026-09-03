@@ -8,6 +8,7 @@ import { PrimaryButton } from "@/components/ui/Buttons";
 import { useReferenceData } from "@/lib/hooks/useReferenceData";
 
 type Periode = "aujourdhui" | "semaine" | "mois" | "tout";
+type PeriodeFiltre = Periode | { debut: string; fin: string };
 
 function debutPeriode(periode: Periode): string | null {
   const now = new Date();
@@ -24,19 +25,46 @@ function debutPeriode(periode: Periode): string | null {
   return null;
 }
 
+/** Résout un filtre de période (relatif ou mois précis) en bornes date. */
+function resolvePeriode(p: PeriodeFiltre): { debut: string | null; fin: string | null } {
+  if (typeof p === "object") return { debut: p.debut, fin: p.fin };
+  return { debut: debutPeriode(p), fin: null };
+}
+
 const TABS = [
   { id: "stock", label: "Stock", icon: Package },
   { id: "ventes", label: "Ventes", icon: ShoppingCart },
-  { id: "achats", label: "Achats", icon: Truck },
+  { id: "conteneurs", label: "Conteneurs", icon: Truck },
   { id: "caisse", label: "Caisse", icon: Wallet },
   { id: "tiers", label: "Créances / Dettes", icon: Users },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
 
+const MOIS_LABELS = [
+  "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
+  "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre",
+];
+
 export function RapportsManager() {
   const [tab, setTab] = useState<TabId>("stock");
   const [periode, setPeriode] = useState<Periode>("mois");
+  const [moisPrecis, setMoisPrecis] = useState("");
+  const [anneePrecise, setAnneePrecise] = useState("");
+
+  const anneeActuelle = new Date().getFullYear();
+  const annees = Array.from({ length: 5 }, (_, i) => anneeActuelle - i);
+
+  // Un mois précis (mois + année choisis) prime sur les périodes relatives.
+  const periodeEffective: Periode | { debut: string; fin: string } =
+    moisPrecis && anneePrecise
+      ? {
+          debut: `${anneePrecise}-${moisPrecis.padStart(2, "0")}-01`,
+          fin: new Date(Number(anneePrecise), Number(moisPrecis), 1)
+            .toISOString()
+            .slice(0, 10),
+        }
+      : periode;
 
   return (
     <div>
@@ -65,37 +93,70 @@ export function RapportsManager() {
           ))}
         </div>
 
-        {(tab === "ventes" || tab === "achats" || tab === "caisse") && (
-          <div className="flex gap-1.5 overflow-x-auto rounded-lg bg-onyx-50 p-1">
-            {(
-              [
-                { id: "aujourdhui", label: "Aujourd'hui" },
-                { id: "semaine", label: "Semaine" },
-                { id: "mois", label: "Mois" },
-                { id: "tout", label: "Tout" },
-              ] as { id: Periode; label: string }[]
-            ).map((p) => (
-              <button
-                key={p.id}
-                onClick={() => setPeriode(p.id)}
-                className={`shrink-0 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-                  periode === p.id
-                    ? "bg-white text-onyx-900 shadow-sm"
-                    : "text-onyx-500 hover:text-onyx-700"
-                }`}
+        {(tab === "ventes" || tab === "conteneurs" || tab === "caisse") && (
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex gap-1.5 overflow-x-auto rounded-lg bg-onyx-50 p-1">
+              {(
+                [
+                  { id: "aujourdhui", label: "Aujourd'hui" },
+                  { id: "semaine", label: "Semaine" },
+                  { id: "mois", label: "Mois" },
+                  { id: "tout", label: "Tout" },
+                ] as { id: Periode; label: string }[]
+              ).map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => {
+                    setPeriode(p.id);
+                    setMoisPrecis("");
+                    setAnneePrecise("");
+                  }}
+                  className={`shrink-0 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                    periode === p.id && !moisPrecis
+                      ? "bg-white text-onyx-900 shadow-sm"
+                      : "text-onyx-500 hover:text-onyx-700"
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <select
+                value={moisPrecis}
+                onChange={(e) => setMoisPrecis(e.target.value)}
+                className="rounded-lg border border-onyx-200 px-2.5 py-1.5 text-xs outline-none focus:border-accent-400"
               >
-                {p.label}
-              </button>
-            ))}
+                <option value="">Mois</option>
+                {MOIS_LABELS.map((m, i) => (
+                  <option key={m} value={String(i + 1)}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={anneePrecise}
+                onChange={(e) => setAnneePrecise(e.target.value)}
+                className="rounded-lg border border-onyx-200 px-2.5 py-1.5 text-xs outline-none focus:border-accent-400"
+              >
+                <option value="">Année</option>
+                {annees.map((a) => (
+                  <option key={a} value={String(a)}>
+                    {a}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         )}
       </div>
 
       <div className="mt-5">
         {tab === "stock" && <RapportStock />}
-        {tab === "ventes" && <RapportVentes periode={periode} />}
-        {tab === "achats" && <RapportAchats periode={periode} />}
-        {tab === "caisse" && <RapportCaisse periode={periode} />}
+        {tab === "ventes" && <RapportVentes periode={periodeEffective} />}
+        {tab === "conteneurs" && <RapportConteneurs periode={periodeEffective} />}
+        {tab === "caisse" && <RapportCaisse periode={periodeEffective} />}
         {tab === "tiers" && <RapportTiers />}
       </div>
     </div>
@@ -113,8 +174,6 @@ function RapportStock() {
       parEmplacement: Record<string, number>;
       total: number;
       stockMinimum: number;
-      prixAchat: number;
-      valeur: number;
     }[]
   >([]);
   const [loading, setLoading] = useState(true);
@@ -124,7 +183,7 @@ function RapportStock() {
     const { data } = await supabase
       .from("articles")
       .select(
-        "designation, stock_minimum, prix_achat, categories(nom), stocks(emplacement_id, quantite)"
+        "designation, stock_minimum, categories(nom), stocks(emplacement_id, quantite)"
       )
       .eq("statut", "Actif")
       .order("designation");
@@ -134,7 +193,6 @@ function RapportStock() {
         data as unknown as {
           designation: string;
           stock_minimum: number;
-          prix_achat: number;
           categories: { nom: string } | null;
           stocks: { emplacement_id: string; quantite: number }[];
         }[]
@@ -152,8 +210,6 @@ function RapportStock() {
           parEmplacement,
           total,
           stockMinimum: a.stock_minimum,
-          prixAchat: a.prix_achat,
-          valeur: total * a.prix_achat,
         };
       });
       setLignes(mapped);
@@ -165,8 +221,6 @@ function RapportStock() {
   useEffect(() => {
     load();
   }, [load]);
-
-  const valeurTotale = lignes.reduce((s, l) => s + l.valeur, 0);
 
   function exporter() {
     exporterExcel("rapport-stock", [
@@ -182,8 +236,6 @@ function RapportStock() {
           }
           row["Total"] = l.total;
           row["Stock minimum"] = l.stockMinimum;
-          row["Prix achat"] = l.prixAchat;
-          row["Valeur stock"] = l.valeur;
           return row;
         }),
       },
@@ -195,10 +247,7 @@ function RapportStock() {
       <div className="flex items-center justify-between">
         <p className="text-sm text-onyx-500">
           {lignes.length} article{lignes.length > 1 ? "s" : ""} actif
-          {lignes.length > 1 ? "s" : ""} · Valeur totale :{" "}
-          <span className="font-medium text-onyx-800">
-            {valeurTotale.toLocaleString("fr-FR")} FCFA
-          </span>
+          {lignes.length > 1 ? "s" : ""}
         </p>
         <PrimaryButton onClick={exporter} className="px-3 py-1.5 text-xs">
           <Download size={14} />
@@ -219,7 +268,6 @@ function RapportStock() {
                 <th className="px-4 py-3">Catégorie</th>
                 <th className="px-4 py-3 text-right">Total</th>
                 <th className="px-4 py-3 text-right">Seuil</th>
-                <th className="px-4 py-3 text-right">Valeur</th>
               </tr>
             </thead>
             <tbody>
@@ -235,9 +283,6 @@ function RapportStock() {
                   <td className="px-4 py-2.5 text-right text-onyx-400">
                     {l.stockMinimum}
                   </td>
-                  <td className="px-4 py-2.5 text-right font-medium text-onyx-700">
-                    {l.valeur.toLocaleString("fr-FR")}
-                  </td>
                 </tr>
               ))}
             </tbody>
@@ -248,7 +293,7 @@ function RapportStock() {
   );
 }
 
-function RapportVentes({ periode }: { periode: Periode }) {
+function RapportVentes({ periode }: { periode: PeriodeFiltre }) {
   const supabase = createClient();
   const [lignes, setLignes] = useState<
     { reference: string; date_vente: string; montant_total: number; statut: string; clients: { nom: string } | null }[]
@@ -261,8 +306,9 @@ function RapportVentes({ periode }: { periode: Periode }) {
       .from("ventes")
       .select("reference, date_vente, montant_total, statut, clients(nom)")
       .order("date_vente", { ascending: false });
-    const debut = debutPeriode(periode);
+    const { debut, fin } = resolvePeriode(periode);
     if (debut) query = query.gte("date_vente", debut);
+    if (fin) query = query.lt("date_vente", fin);
     const { data } = await query;
     if (data) setLignes(data as unknown as typeof lignes);
     setLoading(false);
@@ -341,21 +387,22 @@ function RapportVentes({ periode }: { periode: Periode }) {
   );
 }
 
-function RapportAchats({ periode }: { periode: Periode }) {
+function RapportConteneurs({ periode }: { periode: PeriodeFiltre }) {
   const supabase = createClient();
   const [lignes, setLignes] = useState<
-    { reference: string; date_achat: string; montant_total: number; statut: string; fournisseurs: { nom: string } | null }[]
+    { code: string; date_arrivee: string; montant_achat_global: number | null; statut: string; fournisseurs: { nom: string } | null }[]
   >([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
     let query = supabase
-      .from("achats")
-      .select("reference, date_achat, montant_total, statut, fournisseurs(nom)")
-      .order("date_achat", { ascending: false });
-    const debut = debutPeriode(periode);
-    if (debut) query = query.gte("date_achat", debut);
+      .from("conteneurs")
+      .select("code, date_arrivee, montant_achat_global, statut, fournisseurs(nom)")
+      .order("date_arrivee", { ascending: false });
+    const { debut, fin } = resolvePeriode(periode);
+    if (debut) query = query.gte("date_arrivee", debut);
+    if (fin) query = query.lt("date_arrivee", fin);
     const { data } = await query;
     if (data) setLignes(data as unknown as typeof lignes);
     setLoading(false);
@@ -366,17 +413,17 @@ function RapportAchats({ periode }: { periode: Periode }) {
     load();
   }, [load]);
 
-  const total = lignes.reduce((s, l) => s + l.montant_total, 0);
+  const total = lignes.reduce((s, l) => s + (l.montant_achat_global ?? 0), 0);
 
   function exporter() {
-    exporterExcel("rapport-achats", [
+    exporterExcel("rapport-conteneurs", [
       {
-        nom: "Achats",
+        nom: "Conteneurs",
         lignes: lignes.map((l) => ({
-          Référence: l.reference,
-          Date: l.date_achat,
+          Code: l.code,
+          Date: l.date_arrivee,
           Fournisseur: l.fournisseurs?.nom ?? "",
-          Montant: l.montant_total,
+          "Montant d'achat": l.montant_achat_global ?? "",
           Statut: l.statut,
         })),
       },
@@ -387,7 +434,7 @@ function RapportAchats({ periode }: { periode: Periode }) {
     <div>
       <div className="flex items-center justify-between">
         <p className="text-sm text-onyx-500">
-          {lignes.length} achat{lignes.length > 1 ? "s" : ""} · Total :{" "}
+          {lignes.length} conteneur{lignes.length > 1 ? "s" : ""} · Total :{" "}
           <span className="font-medium text-onyx-800">
             {total.toLocaleString("fr-FR")} FCFA
           </span>
@@ -405,7 +452,7 @@ function RapportAchats({ periode }: { periode: Periode }) {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-onyx-100 bg-onyx-50/50 text-left text-xs font-medium uppercase tracking-wide text-onyx-400">
-                <th className="px-4 py-3">Référence</th>
+                <th className="px-4 py-3">Code</th>
                 <th className="px-4 py-3">Date</th>
                 <th className="px-4 py-3">Fournisseur</th>
                 <th className="px-4 py-3 text-right">Montant</th>
@@ -414,16 +461,18 @@ function RapportAchats({ periode }: { periode: Periode }) {
             </thead>
             <tbody>
               {lignes.map((l) => (
-                <tr key={l.reference} className="border-b border-onyx-50 last:border-0">
-                  <td className="px-4 py-2.5 font-medium text-onyx-800">{l.reference}</td>
+                <tr key={l.code} className="border-b border-onyx-50 last:border-0">
+                  <td className="px-4 py-2.5 font-medium text-onyx-800">{l.code}</td>
                   <td className="px-4 py-2.5 text-onyx-500">
-                    {new Date(l.date_achat).toLocaleDateString("fr-FR")}
+                    {new Date(l.date_arrivee).toLocaleDateString("fr-FR")}
                   </td>
                   <td className="px-4 py-2.5 text-onyx-500">
                     {l.fournisseurs?.nom ?? "—"}
                   </td>
                   <td className="px-4 py-2.5 text-right font-medium text-onyx-700">
-                    {l.montant_total.toLocaleString("fr-FR")}
+                    {l.montant_achat_global !== null
+                      ? l.montant_achat_global.toLocaleString("fr-FR")
+                      : "—"}
                   </td>
                   <td className="px-4 py-2.5 text-onyx-500">{l.statut}</td>
                 </tr>
@@ -436,7 +485,7 @@ function RapportAchats({ periode }: { periode: Periode }) {
   );
 }
 
-function RapportCaisse({ periode }: { periode: Periode }) {
+function RapportCaisse({ periode }: { periode: PeriodeFiltre }) {
   const supabase = createClient();
   const [encaissements, setEncaissements] = useState<
     { reference: string; date_operation: string; montant: number; categorie: string | null; description: string | null }[]
@@ -448,7 +497,7 @@ function RapportCaisse({ periode }: { periode: Periode }) {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const debut = debutPeriode(periode);
+    const { debut, fin } = resolvePeriode(periode);
     let encQuery = supabase
       .from("encaissements")
       .select("reference, date_operation, montant, categorie, description")
@@ -460,6 +509,10 @@ function RapportCaisse({ periode }: { periode: Periode }) {
     if (debut) {
       encQuery = encQuery.gte("date_operation", debut);
       decQuery = decQuery.gte("date_operation", debut);
+    }
+    if (fin) {
+      encQuery = encQuery.lt("date_operation", fin);
+      decQuery = decQuery.lt("date_operation", fin);
     }
     const [encRes, decRes] = await Promise.all([encQuery, decQuery]);
     if (encRes.data) setEncaissements(encRes.data);

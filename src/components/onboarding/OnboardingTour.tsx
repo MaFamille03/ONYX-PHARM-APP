@@ -21,7 +21,7 @@ const MODULES = [
   {
     icon: LayoutDashboard,
     titre: "Tableau de bord",
-    description: "Vue d'ensemble : chiffre d'affaires, marge, stock, caisse.",
+    description: "Vue d'ensemble : chiffre d'affaires, stock, caisse.",
   },
   {
     icon: Package,
@@ -31,17 +31,17 @@ const MODULES = [
   {
     icon: ShoppingCart,
     titre: "Ventes",
-    description: "Devis, ventes, paiements, marges et retours clients.",
+    description: "Ventes, paiements et retours clients.",
   },
   {
     icon: Truck,
-    titre: "Achats",
-    description: "Commandes fournisseurs, réceptions, paiements.",
+    titre: "Conteneurs",
+    description: "Entrées de marchandise par lot, avec leur propre suivi de paiement.",
   },
   {
     icon: Users,
     titre: "Tiers",
-    description: "Clients, fournisseurs, créances et dettes.",
+    description: "Clients et fournisseurs, avec le suivi des dettes fournisseurs.",
   },
   {
     icon: Wallet,

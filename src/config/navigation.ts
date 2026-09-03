@@ -24,22 +24,20 @@ export const NAVIGATION: NavSection[] = [
   },
   {
     label: "Stock",
+    href: "/stock",
+    step: 4,
     icon: "package",
-    children: [
-      { label: "Articles", href: "/stock/articles", step: 4 },
-      { label: "Stocks", href: "/stock/stocks", step: 4 },
-      { label: "Mouvements", href: "/stock/mouvements", step: 5 },
-      { label: "Transferts", href: "/stock/transferts", step: 5 },
-      { label: "Inventaires", href: "/stock/inventaires", step: 5 },
-      { label: "Alertes", href: "/stock/alertes", step: 4 },
-      { label: "Conteneurs", href: "/stock/conteneurs", step: 10 },
-    ],
+  },
+  {
+    label: "Conteneurs",
+    href: "/stock/conteneurs",
+    step: 10,
+    icon: "package",
   },
   {
     label: "Ventes",
     icon: "shopping-cart",
     children: [
-      { label: "Devis", href: "/ventes/devis", step: 7 },
       { label: "Ventes", href: "/ventes/ventes", step: 7 },
       { label: "Paiements", href: "/ventes/paiements", step: 7 },
       { label: "Retours", href: "/ventes/retours", step: 7 },
@@ -47,21 +45,16 @@ export const NAVIGATION: NavSection[] = [
   },
   {
     label: "Caisse",
+    href: "/caisse/solde",
+    step: 8,
     icon: "wallet",
-    children: [
-      { label: "Encaissements", href: "/caisse/encaissements", step: 8 },
-      { label: "Décaissements", href: "/caisse/decaissements", step: 8 },
-      { label: "Solde", href: "/caisse/solde", step: 8 },
-    ],
   },
   {
     label: "Tiers",
     icon: "users",
     children: [
-      { label: "Clients", href: "/tiers/clients", step: 3 },
-      { label: "Fournisseurs", href: "/tiers/fournisseurs", step: 3 },
-      { label: "Créances", href: "/tiers/creances", step: 7 },
-      { label: "Dettes", href: "/tiers/dettes", step: 6 },
+      { label: "Annuaire", href: "/tiers/annuaire", step: 3 },
+      { label: "Dettes fournisseurs", href: "/tiers/dettes", step: 10 },
     ],
   },
   {

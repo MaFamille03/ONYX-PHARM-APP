@@ -4,7 +4,6 @@ import { useEffect, useState, useCallback } from "react";
 import {
   ShoppingCart,
   Package,
-  Wallet,
   AlertTriangle,
   TrendingUp,
   TrendingDown,
@@ -13,6 +12,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { useRealtimeRefresh } from "@/lib/hooks/useRealtimeRefresh";
 
 type Periode = "aujourdhui" | "semaine" | "mois" | "tout";
 
@@ -46,7 +46,6 @@ export function TableauDeBordManager({
 
   const [chiffreAffaires, setChiffreAffaires] = useState(0);
   const [nombreVentes, setNombreVentes] = useState(0);
-  const [margeTotale, setMargeTotale] = useState(0);
   const [valeurStock, setValeurStock] = useState(0);
   const [stockFaibleCount, setStockFaibleCount] = useState(0);
   const [ruptureCount, setRuptureCount] = useState(0);
@@ -58,8 +57,8 @@ export function TableauDeBordManager({
   const [venteRecentes, setVentesRecentes] = useState<
     { reference: string; montant_total: number; statut: string; date_vente: string }[]
   >([]);
-  const [achatsRecents, setAchatsRecents] = useState<
-    { reference: string; montant_total: number; statut: string; date_achat: string }[]
+  const [conteneursRecents, setConteneursRecents] = useState<
+    { code: string; montant_achat_global: number | null; statut: string; date_arrivee: string }[]
   >([]);
 
   const load = useCallback(async () => {
@@ -71,46 +70,37 @@ export function TableauDeBordManager({
       .select("montant_total, statut, date_vente, reference")
       .neq("statut", "Annulé")
       .neq("statut", "Brouillon");
-    let achatsQuery = supabase
-      .from("achats")
-      .select("montant_total, statut, date_achat, reference")
-      .neq("statut", "Annulé")
-      .neq("statut", "Brouillon");
+    let conteneursQuery = supabase
+      .from("conteneurs")
+      .select("code, montant_achat_global, statut, date_arrivee")
+      .neq("statut", "Annulé");
     let encQuery = supabase.from("encaissements").select("montant");
     let decQuery = supabase.from("decaissements").select("montant");
-    let margeQuery = supabase
-      .from("lignes_ventes")
-      .select("marge_ligne, ventes!inner(statut, date_vente)")
-      .neq("ventes.statut", "Annulé")
-      .neq("ventes.statut", "Brouillon");
 
     if (debut) {
       ventesQuery = ventesQuery.gte("date_vente", debut);
-      achatsQuery = achatsQuery.gte("date_achat", debut);
+      conteneursQuery = conteneursQuery.gte("date_arrivee", debut);
       encQuery = encQuery.gte("date_operation", debut);
       decQuery = decQuery.gte("date_operation", debut);
-      margeQuery = margeQuery.gte("ventes.date_vente", debut);
     }
 
     const [
       ventesRes,
-      achatsRes,
+      conteneursRes,
       encRes,
       decRes,
-      margeRes,
       articlesRes,
       creancesRes,
       dettesRes,
       paramRes,
     ] = await Promise.all([
       ventesQuery,
-      achatsQuery,
+      conteneursQuery,
       encQuery,
       decQuery,
-      margeQuery,
       supabase
         .from("articles")
-        .select("prix_achat, stock_minimum, date_expiration, stocks(quantite)")
+        .select("prix_vente_conseille, stock_minimum, date_expiration, stocks(quantite)")
         .eq("statut", "Actif"),
       supabase.from("v_creances_clients").select("creance"),
       supabase.from("v_dettes_fournisseurs").select("dette"),
@@ -130,27 +120,21 @@ export function TableauDeBordManager({
         .slice(0, 5) as typeof venteRecentes
     );
 
-    const achats = achatsRes.data ?? [];
-    setAchatsRecents(
-      [...achats]
-        .sort((a, b) => (a.date_achat < b.date_achat ? 1 : -1))
-        .slice(0, 5) as typeof achatsRecents
+    const conteneurs = conteneursRes.data ?? [];
+    setConteneursRecents(
+      [...conteneurs]
+        .sort((a, b) => (a.date_arrivee < b.date_arrivee ? 1 : -1))
+        .slice(0, 5)
     );
 
     setEncaissements((encRes.data ?? []).reduce((s, e) => s + e.montant, 0));
     setDecaissements((decRes.data ?? []).reduce((s, d) => s + d.montant, 0));
-    setMargeTotale(
-      (margeRes.data ?? []).reduce(
-        (s: number, l: { marge_ligne: number }) => s + l.marge_ligne,
-        0
-      )
-    );
 
     const delaiAlerte = paramRes.data?.valeur
       ? Number(paramRes.data.valeur) || 30
       : 30;
     const articles = (articlesRes.data ?? []) as unknown as {
-      prix_achat: number;
+      prix_vente_conseille: number;
       stock_minimum: number;
       date_expiration: string | null;
       stocks: { quantite: number }[];
@@ -164,7 +148,7 @@ export function TableauDeBordManager({
 
     for (const a of articles) {
       const total = a.stocks.reduce((s, x) => s + x.quantite, 0);
-      valStock += total * a.prix_achat;
+      valStock += total * a.prix_vente_conseille;
       if (total === 0) rupture += 1;
       else if (total <= a.stock_minimum) faible += 1;
       if (a.date_expiration) {
@@ -192,6 +176,11 @@ export function TableauDeBordManager({
   useEffect(() => {
     load();
   }, [load]);
+
+  useRealtimeRefresh(
+    ["ventes", "conteneurs", "encaissements", "decaissements", "stocks"],
+    load
+  );
 
   const heureActuelle = new Date().getHours();
   const salutation =
@@ -243,7 +232,7 @@ export function TableauDeBordManager({
         </p>
       ) : (
         <>
-          <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+          <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
             <Carte
               icon={ShoppingCart}
               label="Chiffre d'affaires"
@@ -251,25 +240,26 @@ export function TableauDeBordManager({
               sousLabel={`${nombreVentes} vente${nombreVentes > 1 ? "s" : ""}`}
             />
             <Carte
-              icon={TrendingUp}
-              label="Marge"
-              valeur={`${margeTotale.toLocaleString("fr-FR")} F`}
-              couleur="text-emerald-600"
-            />
-            <Carte
               icon={Package}
               label="Valeur du stock"
               valeur={`${valeurStock.toLocaleString("fr-FR")} F`}
-              sousLabel="Au prix d'achat"
+              sousLabel="Au prix de vente référence"
             />
             <Carte
-              icon={Wallet}
-              label="Solde caisse (période)"
-              valeur={`${(encaissements - decaissements).toLocaleString("fr-FR")} F`}
+              icon={Users}
+              label="Créances clients"
+              valeur={`${creancesTotal.toLocaleString("fr-FR")} F`}
+              couleur={creancesTotal > 0 ? "text-red-500" : undefined}
             />
           </div>
 
-          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
+            <Carte
+              icon={Truck}
+              label="Dettes fournisseurs"
+              valeur={`${dettesTotal.toLocaleString("fr-FR")} F`}
+              couleur={dettesTotal > 0 ? "text-red-500" : undefined}
+            />
             <Carte
               icon={TrendingUp}
               label="Encaissements"
@@ -281,18 +271,6 @@ export function TableauDeBordManager({
               label="Décaissements"
               valeur={`${decaissements.toLocaleString("fr-FR")} F`}
               couleur="text-red-500"
-            />
-            <Carte
-              icon={Users}
-              label="Créances clients"
-              valeur={`${creancesTotal.toLocaleString("fr-FR")} F`}
-              couleur={creancesTotal > 0 ? "text-red-500" : undefined}
-            />
-            <Carte
-              icon={Truck}
-              label="Dettes fournisseurs"
-              valeur={`${dettesTotal.toLocaleString("fr-FR")} F`}
-              couleur={dettesTotal > 0 ? "text-red-500" : undefined}
             />
           </div>
 
@@ -307,7 +285,7 @@ export function TableauDeBordManager({
                 {expirationCount > 0 &&
                   `${expirationCount} produit(s) proche(s) de l'expiration`}
                 {" — voir "}
-                <a href="/stock/alertes" className="font-medium underline">
+                <a href="/stock" className="font-medium underline">
                   Stock &gt; Alertes
                 </a>
               </p>
@@ -342,22 +320,24 @@ export function TableauDeBordManager({
 
             <div className="rounded-xl border border-onyx-100 bg-white p-4">
               <h2 className="text-sm font-semibold text-onyx-800">
-                Achats récents
+                Conteneurs récents
               </h2>
-              {achatsRecents.length === 0 ? (
+              {conteneursRecents.length === 0 ? (
                 <p className="mt-2 text-sm text-onyx-400">
-                  Aucun achat sur la période.
+                  Aucun conteneur sur la période.
                 </p>
               ) : (
                 <div className="mt-2 space-y-1.5">
-                  {achatsRecents.map((a) => (
+                  {conteneursRecents.map((c) => (
                     <div
-                      key={a.reference}
+                      key={c.code}
                       className="flex items-center justify-between rounded-md bg-onyx-50/50 px-3 py-2 text-sm"
                     >
-                      <span className="text-onyx-600">{a.reference}</span>
+                      <span className="text-onyx-600">{c.code}</span>
                       <span className="font-medium text-onyx-800">
-                        {a.montant_total.toLocaleString("fr-FR")} F
+                        {c.montant_achat_global !== null
+                          ? `${c.montant_achat_global.toLocaleString("fr-FR")} F`
+                          : "—"}
                       </span>
                     </div>
                   ))}

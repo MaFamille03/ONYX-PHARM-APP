@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { KeyRound, ShieldCheck } from "lucide-react";
+import { KeyRound, ShieldCheck, Hash } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { FormField } from "@/components/auth/FormField";
 import { PrimaryButton } from "@/components/ui/Buttons";
@@ -20,19 +20,29 @@ export function SecuriteSection() {
   const [operations, setOperations] = useState("");
   const [savingOps, setSavingOps] = useState(false);
 
+  const [pinDefini, setPinDefini] = useState<boolean | null>(null);
+  const [ancienPin, setAncienPin] = useState("");
+  const [nouveauPin, setNouveauPin] = useState("");
+  const [confirmationPin, setConfirmationPin] = useState("");
+  const [savingPin, setSavingPin] = useState(false);
+  const [errorPin, setErrorPin] = useState<string | null>(null);
+  const [successPin, setSuccessPin] = useState<string | null>(null);
+
   const load = useCallback(async () => {
-    const [{ data: estDefini }, { data: param }] = await Promise.all([
+    const [{ data: estDefini }, { data: param }, { data: pinDef }] = await Promise.all([
       supabase.rpc("second_mot_de_passe_est_defini"),
       supabase
         .from("parametres_generaux")
         .select("valeur")
         .eq("cle", "operations_protegees_second_mdp")
         .maybeSingle(),
+      supabase.rpc("pin_securite_est_defini"),
     ]);
     setDefini(Boolean(estDefini));
     if (param?.valeur && Array.isArray(param.valeur)) {
       setOperations((param.valeur as string[]).join(", "));
     }
+    setPinDefini(Boolean(pinDef));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -90,6 +100,43 @@ export function SecuriteSection() {
     setSavingOps(false);
   }
 
+  async function handleSubmitPin(e: React.FormEvent) {
+    e.preventDefault();
+    setErrorPin(null);
+    setSuccessPin(null);
+
+    if (!/^\d{4}$/.test(nouveauPin)) {
+      setErrorPin("Le code doit contenir exactement 4 chiffres.");
+      return;
+    }
+    if (nouveauPin !== confirmationPin) {
+      setErrorPin("Les deux codes ne correspondent pas.");
+      return;
+    }
+
+    setSavingPin(true);
+    const { error } = await supabase.rpc("definir_pin_securite", {
+      p_nouveau: nouveauPin,
+      p_ancien: pinDefini ? ancienPin : null,
+    });
+    setSavingPin(false);
+
+    if (error) {
+      setErrorPin(
+        error.message.includes("incorrect")
+          ? "Ancien code incorrect."
+          : "Impossible de définir le code."
+      );
+      return;
+    }
+
+    setSuccessPin(pinDefini ? "Code PIN mis à jour." : "Code PIN défini avec succès.");
+    setAncienPin("");
+    setNouveauPin("");
+    setConfirmationPin("");
+    load();
+  }
+
   return (
     <div className="space-y-6">
       <div className="rounded-xl border border-onyx-100 bg-white p-4">
@@ -145,6 +192,69 @@ export function SecuriteSection() {
             <PrimaryButton type="submit" loading={saving}>
               <ShieldCheck size={16} />
               {defini ? "Mettre à jour" : "Définir le mot de passe"}
+            </PrimaryButton>
+          </form>
+        )}
+      </div>
+
+      <div className="rounded-xl border border-onyx-100 bg-white p-4">
+        <div className="flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-50 text-red-600">
+            <Hash size={16} />
+          </div>
+          <h3 className="text-sm font-semibold text-onyx-800">
+            Code PIN (4 chiffres)
+          </h3>
+        </div>
+        <p className="mt-1.5 text-xs text-onyx-400">
+          Demandé avant toute suppression de donnée sensible (paiement,
+          retour...). Distinct du second mot de passe, plus rapide à saisir
+          au quotidien.
+        </p>
+
+        {pinDefini === null ? (
+          <p className="mt-3 text-sm text-onyx-400">Chargement...</p>
+        ) : (
+          <form onSubmit={handleSubmitPin} className="mt-4 max-w-sm space-y-3">
+            {errorPin && <InlineBanner message={errorPin} />}
+            {successPin && <InlineBanner type="success" message={successPin} />}
+
+            {pinDefini && (
+              <FormField
+                id="ancien-pin"
+                label="Code actuel"
+                type="password"
+                inputMode="numeric"
+                maxLength={4}
+                required
+                value={ancienPin}
+                onChange={(e) => setAncienPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
+              />
+            )}
+            <FormField
+              id="nouveau-pin"
+              label={pinDefini ? "Nouveau code" : "Définir un code"}
+              type="password"
+              inputMode="numeric"
+              maxLength={4}
+              required
+              value={nouveauPin}
+              onChange={(e) => setNouveauPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
+              placeholder="4 chiffres"
+            />
+            <FormField
+              id="confirmation-pin"
+              label="Confirmer"
+              type="password"
+              inputMode="numeric"
+              maxLength={4}
+              required
+              value={confirmationPin}
+              onChange={(e) => setConfirmationPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
+            />
+            <PrimaryButton type="submit" loading={savingPin}>
+              <Hash size={16} />
+              {pinDefini ? "Mettre à jour" : "Définir le code"}
             </PrimaryButton>
           </form>
         )}

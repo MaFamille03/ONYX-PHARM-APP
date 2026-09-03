@@ -28,7 +28,6 @@ const COLONNES_MODELE = [
   "Fournisseur",
   "Quantité en stock",
   "Stock minimum",
-  "Prix d'achat",
   "Prix de vente conseillé",
   "Emplacement",
   "Numéro de lot",
@@ -82,7 +81,6 @@ export function ImportExportManager() {
       Fournisseur: "",
       "Quantité en stock": 10,
       "Stock minimum": 5,
-      "Prix d'achat": 50000,
       "Prix de vente conseillé": 70000,
       Emplacement: emplacements[0]?.nom ?? "Bureau",
       "Numéro de lot": "",
@@ -104,7 +102,6 @@ export function ImportExportManager() {
       const emplacement = String(row["Emplacement"] ?? "").trim();
       const quantite = row["Quantité en stock"];
       const stockMin = row["Stock minimum"];
-      const prixAchat = row["Prix d'achat"];
       const prixVente = row["Prix de vente conseillé"];
       const dateExpiration = String(row["Date d'expiration"] ?? "").trim();
 
@@ -119,9 +116,6 @@ export function ImportExportManager() {
       }
       if (stockMin !== "" && stockMin !== undefined && Number.isNaN(Number(stockMin))) {
         erreurs.push("Stock minimum invalide");
-      }
-      if (prixAchat !== "" && prixAchat !== undefined && Number.isNaN(Number(prixAchat))) {
-        erreurs.push("Prix d'achat invalide");
       }
       if (prixVente !== "" && prixVente !== undefined && Number.isNaN(Number(prixVente))) {
         erreurs.push("Prix de vente invalide");
@@ -230,7 +224,6 @@ export function ImportExportManager() {
           marque: String(row["Marque"] ?? "").trim() || null,
           fournisseur_id: fournisseurId ?? null,
           stock_minimum: Number(row["Stock minimum"]) || 0,
-          prix_achat: Number(row["Prix d'achat"]) || 0,
           prix_vente_conseille: Number(row["Prix de vente conseillé"]) || 0,
           numero_lot: String(row["Numéro de lot"] ?? "").trim() || null,
           date_expiration: String(row["Date d'expiration"] ?? "").trim() || null,
@@ -319,12 +312,11 @@ export function ImportExportManager() {
               exporterTable(
                 "articles",
                 "articles",
-                "designation, marque, prix_achat, prix_vente_conseille, stock_minimum, statut",
+                "designation, marque, prix_vente_conseille, stock_minimum, statut",
                 (r) => ({
                   Désignation: r.designation,
                   Marque: r.marque,
-                  "Prix achat": r.prix_achat,
-                  "Prix vente": r.prix_vente_conseille,
+                  "Prix de vente référence": r.prix_vente_conseille,
                   "Stock minimum": r.stock_minimum,
                   Statut: r.statut,
                 })
@@ -362,23 +354,23 @@ export function ImportExportManager() {
           <SecondaryButton
             onClick={() =>
               exporterTable(
-                "achats",
-                "achats",
-                "reference, date_achat, montant_total, montant_paye, statut",
+                "conteneurs",
+                "conteneurs",
+                "code, date_arrivee, montant_achat_global, montant_paye, statut",
                 (r) => ({
-                  Référence: r.reference,
-                  Date: r.date_achat,
-                  Total: r.montant_total,
+                  Code: r.code,
+                  Date: r.date_arrivee,
+                  "Montant d'achat": r.montant_achat_global,
                   Payé: r.montant_paye,
                   Statut: r.statut,
                 })
               )
             }
-            loading={exportingType === "achats"}
+            loading={exportingType === "conteneurs"}
             className="min-h-0 px-3 py-1.5 text-xs"
           >
             <Download size={14} />
-            Achats
+            Conteneurs
           </SecondaryButton>
 
           <SecondaryButton

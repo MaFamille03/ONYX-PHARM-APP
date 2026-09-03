@@ -7,7 +7,7 @@ import { NavIcon } from "@/components/NavIcon";
 
 const TABS = [
   { label: "Accueil", href: "/tableau-de-bord", icon: "layout-dashboard" },
-  { label: "Stock", href: "/stock/articles", icon: "package" },
+  { label: "Stock", href: "/stock", icon: "package" },
   { label: "Ventes", href: "/ventes/ventes", icon: "shopping-cart" },
   { label: "Caisse", href: "/caisse/solde", icon: "wallet" },
 ];

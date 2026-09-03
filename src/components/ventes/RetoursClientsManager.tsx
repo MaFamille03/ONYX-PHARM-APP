@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Plus, ArrowLeftRight } from "lucide-react";
+import { Plus, Trash2, ArrowLeftRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { logSupabaseError } from "@/lib/errors";
 import { Modal } from "@/components/ui/Modal";
@@ -9,7 +9,9 @@ import { ArticleSelect } from "@/components/articles/ArticleSelect";
 import { SelectField } from "@/components/ui/FormControls";
 import { PrimaryButton, SecondaryButton } from "@/components/ui/Buttons";
 import { InlineBanner } from "@/components/ui/Badges";
+import { PinModal } from "@/components/securite/PinModal";
 import { useReferenceData } from "@/lib/hooks/useReferenceData";
+import { useRealtimeRefresh } from "@/lib/hooks/useRealtimeRefresh";
 
 type RetourRow = {
   id: string;
@@ -38,6 +40,7 @@ export function RetoursClientsManager() {
   const [montantImpact, setMontantImpact] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [deleteRetour, setDeleteRetour] = useState<RetourRow | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -56,6 +59,8 @@ export function RetoursClientsManager() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useRealtimeRefresh(["retours_clients"], load);
 
   function openCreate() {
     setArticleId("");
@@ -111,6 +116,25 @@ export function RetoursClientsManager() {
     load();
   }
 
+  async function confirmerSuppressionRetour(pin: string) {
+    if (!deleteRetour) return;
+    const { error } = await supabase.rpc("supprimer_retour_client", {
+      p_retour_id: deleteRetour.id,
+      p_pin: pin,
+    });
+    if (error) {
+      throw new Error(
+        logSupabaseError(
+          { table: "retours_clients", operation: "rpc supprimer_retour_client" },
+          error,
+          "Impossible de supprimer ce retour."
+        )
+      );
+    }
+    setDeleteRetour(null);
+    load();
+  }
+
   return (
     <div>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -150,9 +174,18 @@ export function RetoursClientsManager() {
                   <span className="text-xs font-medium text-onyx-400">
                     {r.reference}
                   </span>
-                  <span className="text-xs text-onyx-400">
-                    {new Date(r.created_at).toLocaleDateString("fr-FR")}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-onyx-400">
+                      {new Date(r.created_at).toLocaleDateString("fr-FR")}
+                    </span>
+                    <button
+                      onClick={() => setDeleteRetour(r)}
+                      className="rounded-md p-1 text-red-400 hover:bg-red-50 hover:text-red-600"
+                      aria-label="Supprimer"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
                 </div>
                 <p className="mt-1 font-medium text-onyx-900">
                   {r.articles?.designation}
@@ -252,6 +285,15 @@ export function RetoursClientsManager() {
             </div>
           </form>
         </Modal>
+      )}
+
+      {deleteRetour && (
+        <PinModal
+          title="Supprimer ce retour"
+          message={`Supprimer le retour "${deleteRetour.reference}" ? Le stock restitué (${deleteRetour.quantite} unité${deleteRetour.quantite > 1 ? "s" : ""}) sera retiré si disponible.`}
+          onCancel={() => setDeleteRetour(null)}
+          onConfirm={confirmerSuppressionRetour}
+        />
       )}
     </div>
   );

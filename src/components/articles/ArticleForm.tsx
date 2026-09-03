@@ -22,7 +22,6 @@ export type ArticleFormValues = {
   marque: string;
   fournisseur_id: string;
   stock_minimum: string;
-  prix_achat: string;
   prix_vente_conseille: string;
   numero_lot: string;
   date_expiration: string;
@@ -37,7 +36,6 @@ export const EMPTY_ARTICLE_FORM: ArticleFormValues = {
   marque: "",
   fournisseur_id: "",
   stock_minimum: "0",
-  prix_achat: "",
   prix_vente_conseille: "",
   numero_lot: "",
   date_expiration: "",
@@ -101,7 +99,6 @@ export function ArticleFormModal({
       marque: form.marque.trim() || null,
       fournisseur_id: form.fournisseur_id || null,
       stock_minimum: Number(form.stock_minimum) || 0,
-      prix_achat: Number(form.prix_achat) || 0,
       prix_vente_conseille: Number(form.prix_vente_conseille) || 0,
       numero_lot: form.numero_lot.trim() || null,
       date_expiration: expirationApplicable ? form.date_expiration || null : null,
@@ -300,18 +297,8 @@ export function ArticleFormModal({
           </SelectField>
 
           <FormField
-            id="prix-achat"
-            label="Prix d'achat (FCFA)"
-            type="number"
-            min="0"
-            step="1"
-            value={form.prix_achat}
-            onChange={(e) => setForm({ ...form, prix_achat: e.target.value })}
-            placeholder="0"
-          />
-          <FormField
             id="prix-vente"
-            label="Prix de vente conseillé"
+            label="Prix de vente référence"
             type="number"
             min="0"
             step="1"

@@ -67,6 +67,10 @@ Si un script affiche une erreur en rouge :
 | `0015_conteneurs.sql` | **Restructuration majeure** : le stock est désormais suivi par conteneur (lot d'entrée), avec un conteneur technique "Stock Initial" regroupant tout le stock antérieur |
 | `0016_creation_conteneur.sql` | Création atomique d'un conteneur avec toutes ses lignes de stock (saisie manuelle + import Excel) |
 | `0017_conteneurs_paiements_fifo.sql` | **Remplacement complet des Achats** : prix d'achat du conteneur optionnel, paiements et statut liés au conteneur (sans rapport avec les ventes), décaissement automatique, et sorties de stock en FIFO multi-conteneurs avec ciblage manuel possible |
+| `0018_cout_revient_conteneurs.sql` | Coût de revient par conteneur (calculé à la volée, une fois entièrement écoulé), date de conception du site |
+| `0019_pin_securite_paiements.sql` | Code PIN à 4 chiffres, cohérence paiement ↔ caisse, suppression sécurisée des brouillons/paiements/retours |
+| `0020_inventaire_realtime.sql` | Date d'inventaire, suppression sécurisée d'un inventaire, **activation du temps réel (Supabase Realtime)** |
+| `0021_journalisation_suppressions.sql` | Journalisation dans l'Historique de toutes les suppressions sensibles (articles, paiements, retours, inventaires) |
 
 Il n'y a pas de nouveau fichier SQL pour l'étape 10 : elle s'appuie
 entièrement sur les tables et vues déjà créées.

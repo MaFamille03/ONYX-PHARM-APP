@@ -20,7 +20,7 @@ export default async function AppLayout({
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("nom_complet, compte_statut")
+    .select("nom_complet, compte_statut, presentation_vue")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -35,5 +35,9 @@ export default async function AppLayout({
     );
   }
 
-  return <AppShell userEmail={user.email ?? null}>{children}</AppShell>;
+  return (
+    <AppShell userEmail={user.email ?? null} presentationVue={profile?.presentation_vue ?? true}>
+      {children}
+    </AppShell>
+  );
 }

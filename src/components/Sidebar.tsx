@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronDown } from "lucide-react";
 import { NAVIGATION } from "@/config/navigation";
 import { NavIcon } from "@/components/NavIcon";
 import { Logo } from "@/components/Logo";
+import { createClient } from "@/lib/supabase/client";
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -25,7 +26,39 @@ export function Sidebar() {
           />
         ))}
       </nav>
+      <SidebarFooter />
     </aside>
+  );
+}
+
+function SidebarFooter() {
+  const [date, setDate] = useState<string | null>(null);
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase
+      .from("parametres_generaux")
+      .select("valeur")
+      .eq("cle", "date_conception_site")
+      .maybeSingle()
+      .then(({ data }) => {
+        if (typeof data?.valeur === "string" && data.valeur) setDate(data.valeur);
+      });
+  }, []);
+
+  if (!date) return null;
+
+  return (
+    <div className="border-t border-onyx-100 px-4 py-3">
+      <p className="text-[11px] text-onyx-300">
+        Site conçu le{" "}
+        {new Date(date).toLocaleDateString("fr-FR", {
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+        })}
+      </p>
+    </div>
   );
 }
 

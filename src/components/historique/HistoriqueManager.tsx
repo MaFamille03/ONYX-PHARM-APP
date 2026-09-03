@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { Search, History as HistoryIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { useRealtimeRefresh } from "@/lib/hooks/useRealtimeRefresh";
 
 type HistoriqueRow = {
   id: string;
@@ -59,6 +60,8 @@ export function HistoriqueManager() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useRealtimeRefresh(["historique"], load);
 
   const filtres = entries.filter((e) => {
     if (

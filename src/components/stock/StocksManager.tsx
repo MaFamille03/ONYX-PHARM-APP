@@ -9,15 +9,17 @@ import { Modal } from "@/components/ui/Modal";
 import { PrimaryButton, SecondaryButton } from "@/components/ui/Buttons";
 import { InlineBanner } from "@/components/ui/Badges";
 import { useReferenceData } from "@/lib/hooks/useReferenceData";
+import { useRealtimeRefresh } from "@/lib/hooks/useRealtimeRefresh";
 
 type StockRow = {
   article_id: string;
   designation: string;
   parEmplacement: Record<string, number>;
+  parConteneur: Record<string, number>;
   total: number;
 };
 
-export function StocksManager() {
+export function StocksManager({ embarque }: { embarque?: boolean } = {}) {
   const supabase = createClient();
   const { emplacements } = useReferenceData();
   const emplacementsActifs = emplacements.filter((e) => e.actif);
@@ -42,7 +44,9 @@ export function StocksManager() {
     setLoading(true);
     const { data, error } = await supabase
       .from("articles")
-      .select("id, designation, stocks(emplacement_id, quantite)")
+      .select(
+        "id, designation, stocks(emplacement_id, quantite, conteneurs(code))"
+      )
       .order("designation");
 
     if (!error && data) {
@@ -50,10 +54,15 @@ export function StocksManager() {
         data as unknown as {
           id: string;
           designation: string;
-          stocks: { emplacement_id: string; quantite: number }[];
+          stocks: {
+            emplacement_id: string;
+            quantite: number;
+            conteneurs: { code: string } | null;
+          }[];
         }[]
       ).map((a) => {
         const parEmplacement: Record<string, number> = {};
+        const parConteneur: Record<string, number> = {};
         let total = 0;
         for (const s of a.stocks) {
           // Un article peut désormais avoir plusieurs lignes de stock pour
@@ -61,9 +70,19 @@ export function StocksManager() {
           // n'écrase jamais.
           parEmplacement[s.emplacement_id] =
             (parEmplacement[s.emplacement_id] || 0) + s.quantite;
+          if (s.quantite > 0 && s.conteneurs) {
+            parConteneur[s.conteneurs.code] =
+              (parConteneur[s.conteneurs.code] || 0) + s.quantite;
+          }
           total += s.quantite;
         }
-        return { article_id: a.id, designation: a.designation, parEmplacement, total };
+        return {
+          article_id: a.id,
+          designation: a.designation,
+          parEmplacement,
+          parConteneur,
+          total,
+        };
       });
       setRows(mapped);
     }
@@ -74,6 +93,8 @@ export function StocksManager() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useRealtimeRefresh(["stocks", "articles"], load);
 
   function openAjustement(
     articleId: string,
@@ -203,9 +224,11 @@ export function StocksManager() {
 
   return (
     <div>
-      <h1 className="text-xl font-semibold text-onyx-900 sm:text-2xl">
-        Stocks
-      </h1>
+      {!embarque && (
+        <h1 className="text-xl font-semibold text-onyx-900 sm:text-2xl">
+          Stocks
+        </h1>
+      )}
       <p className="mt-1 text-sm text-onyx-500">
         Quantités par emplacement. Cliquez sur une quantité pour la
         corriger — chaque correction est enregistrée dans les mouvements de
@@ -293,6 +316,7 @@ export function StocksManager() {
                       </th>
                     ))}
                     <th className="px-4 py-3 text-right">Total</th>
+                    <th className="px-4 py-3">Par conteneur</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -324,6 +348,13 @@ export function StocksManager() {
                       ))}
                       <td className="px-4 py-3 text-right font-semibold text-onyx-900">
                         {r.total}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-onyx-400">
+                        {Object.entries(r.parConteneur).length === 0
+                          ? "—"
+                          : Object.entries(r.parConteneur)
+                              .map(([code, qte]) => `${code} : ${qte}`)
+                              .join(" · ")}
                       </td>
                     </tr>
                   ))}
@@ -362,6 +393,15 @@ export function StocksManager() {
               <p className="mt-1 text-xs text-onyx-400">
                 Quantité actuelle : {ajustement.quantiteActuelle}
               </p>
+              {ajustement.quantiteActuelle > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setNouvelleQuantite("0")}
+                  className="mt-1.5 text-xs font-medium text-red-500 hover:underline"
+                >
+                  Vider ce stock (mettre à 0)
+                </button>
+              )}
             </div>
 
             <div>

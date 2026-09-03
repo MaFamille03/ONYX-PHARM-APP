@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Plus, ArrowLeft, Trash2, CreditCard, XCircle, Printer } from "lucide-react";
+import { Plus, ArrowLeft, Pencil, Trash2, CreditCard, XCircle, Printer } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { logSupabaseError } from "@/lib/errors";
 import { Modal } from "@/components/ui/Modal";
@@ -11,6 +11,7 @@ import { InlineBanner, StatutBadge } from "@/components/ui/Badges";
 import { ClientSelect } from "@/components/tiers/ClientSelect";
 import { ConteneurLigneSelect } from "@/components/conteneurs/ConteneurLigneSelect";
 import { useReferenceData } from "@/lib/hooks/useReferenceData";
+import { useRealtimeRefresh } from "@/lib/hooks/useRealtimeRefresh";
 import { SecondPasswordModal } from "@/components/securite/SecondPasswordModal";
 import { DocumentImprimable } from "@/components/documents/DocumentImprimable";
 
@@ -27,14 +28,12 @@ type VenteRow = {
 type ArticleOption = {
   id: string;
   designation: string;
-  prix_achat: number;
   prix_vente_conseille: number;
 };
 
 type LigneBrouillon = {
   article_id: string;
   quantite: string;
-  prix_achat_reference: string;
   prix_vente_conseille_reference: string;
   prix_vente_reel: string;
   remise: string;
@@ -45,12 +44,18 @@ type LigneBrouillon = {
 export function VentesManager() {
   const [vue, setVue] = useState<"liste" | "creation" | "detail">("liste");
   const [venteOuverteId, setVenteOuverteId] = useState<string | null>(null);
+  const [venteEditionId, setVenteEditionId] = useState<string | null>(null);
 
   if (vue === "creation") {
     return (
       <NouvelleVente
-        onCancel={() => setVue("liste")}
+        editVenteId={venteEditionId ?? undefined}
+        onCancel={() => {
+          setVenteEditionId(null);
+          setVue(venteEditionId ? "detail" : "liste");
+        }}
         onCreated={(id) => {
+          setVenteEditionId(null);
           setVenteOuverteId(id);
           setVue("detail");
         }}
@@ -59,7 +64,16 @@ export function VentesManager() {
   }
 
   if (vue === "detail" && venteOuverteId) {
-    return <VenteDetail venteId={venteOuverteId} onBack={() => setVue("liste")} />;
+    return (
+      <VenteDetail
+        venteId={venteOuverteId}
+        onBack={() => setVue("liste")}
+        onEdit={() => {
+          setVenteEditionId(venteOuverteId);
+          setVue("creation");
+        }}
+      />
+    );
   }
 
   return (
@@ -101,6 +115,8 @@ function ListeVentes({
     load();
   }, [load]);
 
+  useRealtimeRefresh(["ventes"], load);
+
   return (
     <div>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -109,7 +125,7 @@ function ListeVentes({
             Ventes
           </h1>
           <p className="mt-1 text-sm text-onyx-500">
-            Ventes multi-articles, marges et paiements.
+            Ventes multi-articles et paiements.
           </p>
         </div>
         <PrimaryButton onClick={onCreate} className="shrink-0">
@@ -172,9 +188,11 @@ function ListeVentes({
 }
 
 function NouvelleVente({
+  editVenteId,
   onCancel,
   onCreated,
 }: {
+  editVenteId?: string;
   onCancel: () => void;
   onCreated: (id: string) => void;
 }) {
@@ -189,19 +207,57 @@ function NouvelleVente({
   const [articlesOptions, setArticlesOptions] = useState<ArticleOption[]>([]);
   const [lignes, setLignes] = useState<LigneBrouillon[]>([]);
   const [saving, setSaving] = useState(false);
+  const [loadingEdition, setLoadingEdition] = useState(Boolean(editVenteId));
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     supabase
       .from("articles")
-      .select("id, designation, prix_achat, prix_vente_conseille")
+      .select("id, designation, prix_vente_conseille")
       .eq("statut", "Actif")
       .order("designation")
       .then(({ data }) => {
         if (data) setArticlesOptions(data as ArticleOption[]);
       });
+
+    if (editVenteId) {
+      Promise.all([
+        supabase
+          .from("ventes")
+          .select("client_id, date_vente")
+          .eq("id", editVenteId)
+          .single(),
+        supabase
+          .from("lignes_ventes")
+          .select(
+            "article_id, quantite, prix_vente_conseille_reference, prix_vente_reel, remise, emplacement_id, conteneur_id"
+          )
+          .eq("vente_id", editVenteId),
+      ]).then(([venteRes, lignesRes]) => {
+        if (venteRes.data) {
+          setClientId(venteRes.data.client_id ?? "");
+          setDateVente(venteRes.data.date_vente);
+        }
+        if (lignesRes.data) {
+          setLignes(
+            lignesRes.data.map((l) => ({
+              article_id: l.article_id,
+              quantite: String(l.quantite),
+              prix_vente_conseille_reference: String(
+                l.prix_vente_conseille_reference ?? ""
+              ),
+              prix_vente_reel: String(l.prix_vente_reel),
+              remise: String(l.remise ?? "0"),
+              emplacement_id: l.emplacement_id,
+              conteneur_id: l.conteneur_id ?? "",
+            }))
+          );
+        }
+        setLoadingEdition(false);
+      });
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [editVenteId]);
 
   function ajouterLigne() {
     setLignes([
@@ -209,7 +265,6 @@ function NouvelleVente({
       {
         article_id: "",
         quantite: "1",
-        prix_achat_reference: "",
         prix_vente_conseille_reference: "",
         prix_vente_reel: "",
         remise: "0",
@@ -231,7 +286,6 @@ function NouvelleVente({
     const article = articlesOptions.find((a) => a.id === articleId);
     majLigne(index, {
       article_id: articleId,
-      prix_achat_reference: article ? String(article.prix_achat) : "",
       prix_vente_conseille_reference: article
         ? String(article.prix_vente_conseille)
         : "",
@@ -248,14 +302,6 @@ function NouvelleVente({
     const prix = Number(l.prix_vente_reel) || 0;
     const remise = Number(l.remise) || 0;
     return sum + (qte * prix - remise);
-  }, 0);
-
-  const margeTotal = lignes.reduce((sum, l) => {
-    const qte = Number(l.quantite) || 0;
-    const prixVente = Number(l.prix_vente_reel) || 0;
-    const prixAchat = Number(l.prix_achat_reference) || 0;
-    const remise = Number(l.remise) || 0;
-    return sum + (qte * (prixVente - prixAchat) - remise);
   }, 0);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -282,54 +328,100 @@ function NouvelleVente({
       data: { user },
     } = await supabase.auth.getUser();
 
-    const { data: refData, error: refError } = await supabase.rpc(
-      "generer_numero_document",
-      { p_prefixe: "FAC" }
-    );
-    if (refError || !refData) {
-      setError(
-        logSupabaseError(
-          { table: "numero_sequences", operation: "rpc generer_numero_document" },
-          refError,
-          "Impossible de générer la référence. Réessayez."
-        )
-      );
-      setSaving(false);
-      return;
-    }
+    let venteId = editVenteId;
 
-    const { data: vente, error: venteError } = await supabase
-      .from("ventes")
-      .insert({
-        reference: refData,
-        client_id: clientId || null,
-        date_vente: dateVente,
-        montant_total: montantTotal,
-        statut: "Brouillon",
-        created_by: user?.id ?? null,
-      })
-      .select("id")
-      .single();
+    if (editVenteId) {
+      const { error: updateError } = await supabase
+        .from("ventes")
+        .update({
+          client_id: clientId || null,
+          date_vente: dateVente,
+          montant_total: montantTotal,
+        })
+        .eq("id", editVenteId);
 
-    if (venteError || !vente) {
-      setError(
-        logSupabaseError(
-          { table: "ventes", operation: "insert" },
-          venteError,
-          "Impossible de créer la vente. Réessayez."
-        )
+      if (updateError) {
+        setError(
+          logSupabaseError(
+            { table: "ventes", operation: "update (édition brouillon)" },
+            updateError,
+            "Impossible d'enregistrer les modifications. Réessayez."
+          )
+        );
+        setSaving(false);
+        return;
+      }
+
+      const { error: deleteLignesError } = await supabase
+        .from("lignes_ventes")
+        .delete()
+        .eq("vente_id", editVenteId);
+
+      if (deleteLignesError) {
+        setError(
+          logSupabaseError(
+            { table: "lignes_ventes", operation: "delete (édition brouillon)" },
+            deleteLignesError,
+            "Impossible de mettre à jour les lignes. Réessayez."
+          )
+        );
+        setSaving(false);
+        return;
+      }
+    } else {
+      const { data: refData, error: refError } = await supabase.rpc(
+        "generer_numero_document",
+        { p_prefixe: "FAC" }
       );
-      setSaving(false);
-      return;
+      if (refError || !refData) {
+        setError(
+          logSupabaseError(
+            { table: "numero_sequences", operation: "rpc generer_numero_document" },
+            refError,
+            "Impossible de générer la référence. Réessayez."
+          )
+        );
+        setSaving(false);
+        return;
+      }
+
+      const { data: vente, error: venteError } = await supabase
+        .from("ventes")
+        .insert({
+          reference: refData,
+          client_id: clientId || null,
+          date_vente: dateVente,
+          montant_total: montantTotal,
+          statut: "Brouillon",
+          created_by: user?.id ?? null,
+        })
+        .select("id")
+        .single();
+
+      if (venteError || !vente) {
+        setError(
+          logSupabaseError(
+            { table: "ventes", operation: "insert" },
+            venteError,
+            "Impossible de créer la vente. Réessayez."
+          )
+        );
+        setSaving(false);
+        return;
+      }
+      venteId = vente.id;
     }
 
     const { error: lignesError } = await supabase.from("lignes_ventes").insert(
       lignes.map((l) => ({
-        vente_id: vente.id,
+        vente_id: venteId,
         article_id: l.article_id,
         emplacement_id: l.emplacement_id,
         quantite: Number(l.quantite),
-        prix_achat_reference: Number(l.prix_achat_reference) || 0,
+        // Colonne historique héritée de l'ancien système de marge, non
+        // utilisée par le nouveau modèle (prix de vente entièrement
+        // libre). Conservée à 0 pour satisfaire la contrainte de la base.
+        prix_achat_reference: 0,
         prix_vente_conseille_reference:
           Number(l.prix_vente_conseille_reference) || 0,
         prix_vente_reel: Number(l.prix_vente_reel) || 0,
@@ -342,12 +434,16 @@ function NouvelleVente({
 
     if (lignesError) {
       setError(
-        "La vente a été créée mais les lignes n'ont pas pu être enregistrées."
+        "La vente a été enregistrée mais les lignes n'ont pas pu être créées."
       );
       return;
     }
 
-    onCreated(vente.id);
+    onCreated(venteId!);
+  }
+
+  if (loadingEdition) {
+    return <p className="py-10 text-center text-sm text-onyx-400">Chargement...</p>;
   }
 
   return (
@@ -361,7 +457,7 @@ function NouvelleVente({
       </button>
 
       <h1 className="text-xl font-semibold text-onyx-900 sm:text-2xl">
-        Nouvelle vente
+        {editVenteId ? "Modifier le brouillon" : "Nouvelle vente"}
       </h1>
 
       <form onSubmit={handleSubmit} className="mt-5 space-y-5">
@@ -446,9 +542,19 @@ function NouvelleVente({
                       </div>
 
                       <div className="sm:col-span-2">
-                        <label className="mb-1 block text-xs font-medium text-onyx-500">
-                          Prix de vente
-                        </label>
+                        <div className="mb-1 flex items-baseline justify-between">
+                          <label className="block text-xs font-medium text-onyx-500">
+                            Prix de vente
+                          </label>
+                          <span className="text-[11px] text-onyx-400">
+                            Référence :{" "}
+                            {l.prix_vente_conseille_reference
+                              ? Number(
+                                  l.prix_vente_conseille_reference
+                                ).toLocaleString("fr-FR")
+                              : "—"}
+                          </span>
+                        </div>
                         <input
                           type="number"
                           min="0"
@@ -459,14 +565,12 @@ function NouvelleVente({
                           }
                           className="w-full rounded-md border border-onyx-200 px-2.5 py-2 text-sm outline-none focus:border-accent-400 focus:ring-2 focus:ring-accent-100"
                         />
-                        {l.prix_vente_conseille_reference &&
-                          Number(l.prix_vente_reel) !==
+                        {Number(l.prix_vente_conseille_reference) > 0 &&
+                          l.prix_vente_reel !== "" &&
+                          Number(l.prix_vente_reel) <
                             Number(l.prix_vente_conseille_reference) && (
-                            <p className="mt-0.5 text-[11px] text-accent-600">
-                              Conseillé :{" "}
-                              {Number(
-                                l.prix_vente_conseille_reference
-                              ).toLocaleString("fr-FR")}
+                            <p className="mt-0.5 text-[11px] text-red-500">
+                              Sous le prix de référence
                             </p>
                           )}
                       </div>
@@ -540,13 +644,7 @@ function NouvelleVente({
             </div>
           )}
 
-          <div className="mt-4 flex items-center justify-between border-t border-onyx-100 pt-3">
-            <p className="text-xs text-onyx-400">
-              Marge estimée :{" "}
-              <span className="font-medium text-emerald-600">
-                {margeTotal.toLocaleString("fr-FR")} FCFA
-              </span>
-            </p>
+          <div className="mt-4 flex items-center justify-end border-t border-onyx-100 pt-3">
             <p className="text-sm font-semibold text-onyx-800">
               Total : {montantTotal.toLocaleString("fr-FR")} FCFA
             </p>
@@ -558,7 +656,7 @@ function NouvelleVente({
             Annuler
           </SecondaryButton>
           <PrimaryButton type="submit" loading={saving} className="flex-1">
-            Créer la vente
+            {editVenteId ? "Enregistrer les modifications" : "Créer la vente"}
           </PrimaryButton>
         </div>
       </form>
@@ -569,9 +667,11 @@ function NouvelleVente({
 function VenteDetail({
   venteId,
   onBack,
+  onEdit,
 }: {
   venteId: string;
   onBack: () => void;
+  onEdit: () => void;
 }) {
   const supabase = createClient();
   const [vente, setVente] = useState<VenteRow | null>(null);
@@ -580,8 +680,8 @@ function VenteDetail({
       id: string;
       quantite: number;
       prix_vente_reel: number;
+      prix_vente_conseille_reference: number;
       montant_ligne: number;
-      marge_ligne: number;
       articles: { designation: string } | null;
       emplacements: { nom: string } | null;
     }[]
@@ -598,6 +698,7 @@ function VenteDetail({
   const [modePaiement, setModePaiement] = useState("Espèces");
   const [annulationModalOpen, setAnnulationModalOpen] = useState(false);
   const [impressionOpen, setImpressionOpen] = useState(false);
+  const [suppressionBrouillonOpen, setSuppressionBrouillonOpen] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -612,7 +713,7 @@ function VenteDetail({
       supabase
         .from("lignes_ventes")
         .select(
-          "id, quantite, prix_vente_reel, montant_ligne, marge_ligne, articles(designation), emplacements(nom)"
+          "id, quantite, prix_vente_reel, prix_vente_conseille_reference, montant_ligne, articles(designation), emplacements(nom)"
         )
         .eq("vente_id", venteId),
       supabase
@@ -657,23 +758,25 @@ function VenteDetail({
     load();
   }
 
-  async function annulerVente() {
+  async function supprimerBrouillon() {
     setBusy(true);
     setError(null);
-    const { error } = await supabase
-      .from("ventes")
-      .update({ statut: "Annulé" })
-      .eq("id", venteId);
+    const { error } = await supabase.rpc("supprimer_vente_brouillon", {
+      p_vente_id: venteId,
+    });
     setBusy(false);
     if (error) {
       setError(
         logSupabaseError(
-          { table: "ventes", operation: "update (annulation brouillon)" },
+          { table: "ventes", operation: "rpc supprimer_vente_brouillon" },
           error,
-          "Impossible d'annuler cette vente. Réessayez."
+          "Impossible de supprimer ce brouillon. Réessayez."
         )
       );
-    } else load();
+      return;
+    }
+    setSuppressionBrouillonOpen(false);
+    onBack();
   }
 
   async function annulerVenteAvecMotDePasse(motDePasse: string) {
@@ -751,7 +854,6 @@ function VenteDetail({
   }
 
   const reste = vente.montant_total - vente.montant_paye;
-  const margeTotal = lignes.reduce((s, l) => s + l.marge_ligne, 0);
 
   return (
     <div>
@@ -775,11 +877,19 @@ function VenteDetail({
           </p>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {vente.statut === "Brouillon" && (
             <>
-              <SecondaryButton onClick={annulerVente} loading={busy}>
-                Annuler
+              <SecondaryButton onClick={onEdit}>
+                <Pencil size={16} />
+                Modifier
+              </SecondaryButton>
+              <SecondaryButton
+                onClick={() => setSuppressionBrouillonOpen(true)}
+                className="border-red-200 text-red-600 hover:bg-red-50"
+              >
+                <Trash2 size={16} />
+                Supprimer
               </SecondaryButton>
               <PrimaryButton onClick={validerVente} loading={busy}>
                 Valider la vente
@@ -819,7 +929,7 @@ function VenteDetail({
         </div>
       )}
 
-      <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className="rounded-xl border border-onyx-100 bg-white p-4 text-center">
           <p className="text-lg font-semibold text-onyx-900">
             {vente.montant_total.toLocaleString("fr-FR")}
@@ -842,12 +952,6 @@ function VenteDetail({
           </p>
           <p className="text-xs text-onyx-400">Créance</p>
         </div>
-        <div className="rounded-xl border border-onyx-100 bg-white p-4 text-center">
-          <p className="text-lg font-semibold text-accent-600">
-            {margeTotal.toLocaleString("fr-FR")}
-          </p>
-          <p className="text-xs text-onyx-400">Marge</p>
-        </div>
       </div>
 
       <div className="mt-5 overflow-x-auto rounded-xl border border-onyx-100 bg-white">
@@ -856,9 +960,9 @@ function VenteDetail({
             <tr className="border-b border-onyx-100 bg-onyx-50/50 text-left text-xs font-medium uppercase tracking-wide text-onyx-400">
               <th className="px-4 py-3">Article</th>
               <th className="px-4 py-3 text-right">Qté</th>
+              <th className="px-4 py-3 text-right">Prix référence</th>
               <th className="px-4 py-3 text-right">Prix vente</th>
               <th className="px-4 py-3 text-right">Montant</th>
-              <th className="px-4 py-3 text-right">Marge</th>
               <th className="px-4 py-3">Emplacement</th>
             </tr>
           </thead>
@@ -871,14 +975,16 @@ function VenteDetail({
                 <td className="px-4 py-2.5 text-right text-onyx-500">
                   {l.quantite}
                 </td>
+                <td className="px-4 py-2.5 text-right text-onyx-400">
+                  {l.prix_vente_conseille_reference
+                    ? l.prix_vente_conseille_reference.toLocaleString("fr-FR")
+                    : "—"}
+                </td>
                 <td className="px-4 py-2.5 text-right text-onyx-500">
                   {l.prix_vente_reel.toLocaleString("fr-FR")}
                 </td>
                 <td className="px-4 py-2.5 text-right font-medium text-onyx-700">
                   {l.montant_ligne.toLocaleString("fr-FR")}
-                </td>
-                <td className="px-4 py-2.5 text-right text-emerald-600">
-                  {l.marge_ligne.toLocaleString("fr-FR")}
                 </td>
                 <td className="px-4 py-2.5 text-onyx-500">
                   {l.emplacements?.nom}
@@ -976,6 +1082,31 @@ function VenteDetail({
           onCancel={() => setAnnulationModalOpen(false)}
           onConfirm={annulerVenteAvecMotDePasse}
         />
+      )}
+
+      {suppressionBrouillonOpen && (
+        <Modal title="Supprimer ce brouillon" onClose={() => setSuppressionBrouillonOpen(false)}>
+          <p className="text-sm text-onyx-600">
+            Supprimer définitivement le brouillon <strong>{vente.reference}</strong> ?
+            Aucun stock n&apos;est engagé pour un brouillon, cette action est
+            donc sans risque pour vos données mais reste irréversible.
+          </p>
+          <div className="mt-5 flex gap-3">
+            <SecondaryButton
+              onClick={() => setSuppressionBrouillonOpen(false)}
+              className="flex-1"
+            >
+              Annuler
+            </SecondaryButton>
+            <PrimaryButton
+              onClick={supprimerBrouillon}
+              loading={busy}
+              className="flex-1 bg-red-600 hover:bg-red-700"
+            >
+              Supprimer
+            </PrimaryButton>
+          </div>
+        </Modal>
       )}
 
       {impressionOpen && (

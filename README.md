@@ -949,3 +949,233 @@ opérations.
 6. Enregistrez un paiement sur un conteneur : vérifiez qu'il apparaît
    automatiquement dans **Caisse > Décaissements** et dans **Tiers >
    Dettes**
+
+---
+
+## CONTENEURS — ÉTAPE 4-A
+
+Cette livraison ajoute le coût de revient par conteneur, libère
+définitivement le prix de vente du prix d'achat, et généralise la
+possibilité de modifier/supprimer les données sensibles — protégée par
+un nouveau **code PIN à 4 chiffres**, distinct du second mot de passe.
+
+### Ce qui a été fait
+
+- **Coût de revient par conteneur** (Stock > Conteneurs, ouvrez un
+  conteneur) : calculé automatiquement, uniquement quand le conteneur est
+  entièrement écoulé et qu'un montant d'achat a été renseigné — toujours
+  recalculé à la volée, jamais figé
+- **Paramètres > Seuils** : le délai d'alerte avant expiration est
+  maintenant modifiable depuis un onglet dédié
+- **Date de conception du site** : modifiable dans Paramètres > Général,
+  affichée en pied de menu latéral
+- **Code PIN à 4 chiffres** (Paramètres > Sécurité) : nouveau, distinct du
+  second mot de passe, protège désormais les suppressions d'articles, de
+  paiements et de retours
+- **Articles** : la colonne et le champ "Prix d'achat" ont disparu ;
+  suppression d'un article possible (protégée par le code PIN ; refusée
+  proprement si l'article est déjà utilisé dans une vente ou un
+  mouvement de stock)
+- **Ventes — brouillons** : "Modifier" et "Supprimer" disponibles sur
+  tout brouillon (aucun code requis, puisqu'un brouillon n'a encore
+  engagé ni stock ni caisse) ; modifier recharge les lignes existantes et
+  les remplace à l'enregistrement
+- **Ventes — prix de référence** : affiché au-dessus du champ de prix
+  réel (n'en décale plus jamais la position), avec un message d'alerte
+  dès que le prix réel tombe sous le prix de référence ; colonne "Prix
+  référence" ajoutée au détail de la vente
+- **Paiements de ventes et retours clients** : modifier et supprimer
+  disponibles partout ; la suppression est protégée par le code PIN et
+  répercute automatiquement la caisse (le décaissement/encaissement lié
+  disparaît avec le paiement)
+- Nettoyage : pages Caisse (Encaissements/Décaissements séparés) et Tiers
+  (Créances) retirées, devenues orphelines depuis la simplification du
+  menu
+
+### Procédure
+
+1. Dézippez ce zip par-dessus votre dossier de travail
+2. GitHub Desktop → commit (`Conteneurs étape 4-A`) → Push
+3. **Aucune action Supabase requise** — toutes les fonctions nécessaires
+   (code PIN, suppressions sécurisées, coût de revient) étaient déjà en
+   base depuis les livraisons précédentes
+
+### À tester
+
+1. **Paramètres > Sécurité** : définissez votre code PIN à 4 chiffres si
+   ce n'est pas déjà fait
+2. **Paramètres > Seuils** : modifiez le délai d'alerte d'expiration
+3. **Paramètres > Général** : renseignez la date de conception du site,
+   vérifiez qu'elle s'affiche en bas du menu
+4. **Stock > Articles** : vérifiez l'absence du prix d'achat, testez la
+   suppression d'un article inutilisé (code PIN demandé)
+5. **Ventes** : créez un brouillon, modifiez-le, supprimez-le ; sur une
+   ligne, saisissez un prix inférieur au prix de référence et vérifiez le
+   message d'alerte
+6. **Ventes > Paiements** et **Ventes > Retours** : testez modifier et
+   supprimer (code PIN demandé pour supprimer)
+7. **Stock > Conteneurs** : ouvrez un conteneur entièrement vendu avec un
+   montant d'achat renseigné, vérifiez que le coût de revient s'affiche
+
+---
+
+## CONTENEURS — ÉTAPE 4-B
+
+Dernière grande livraison du chantier conteneurs : caisse en livre
+comptable, Stock unifié, Tiers fusionnés, Rapports ajustés, onboarding
+réellement obligatoire, Inventaire complet, et surtout — **le temps
+réel** : ce que fait un utilisateur apparaît désormais chez tous les
+autres sans qu'ils aient besoin de recharger la page.
+
+### Ce qui a été fait
+
+- **Caisse > Solde** devient un véritable livre de caisse : tableau
+  Numéro/Date/Désignation/Recette/Dépense/Solde cumulatif, boutons
+  "Recette" et "Dépense" pour ajouter une opération manuelle
+  directement, export Excel au même format. Les anciennes pages
+  Encaissements/Décaissements séparées ont disparu (l'encaissement
+  d'une vente s'y ajoute déjà automatiquement)
+- **Tiers** : Clients et Fournisseurs sont réunis sur une seule page
+  (`Tiers`) avec un simple bouton pour filtrer entre les deux
+- **Stock** devient une page unique avec trois onglets en défilement
+  (Articles / Stock / Inventaire) et trois boutons en en-tête ouvrant
+  des formulaires : **Mouvements** (transfert rapide entre
+  emplacements), **Alerte** (ajuster en masse les seuils de stock
+  minimum), **Conteneur** (import Excel direct, sans quitter la page)
+- **Stock (onglet)** : quantité détaillée par conteneur ajoutée à côté
+  du total, et raccourci pour vider un stock
+- **Inventaire** : date de l'inventaire à la création, export PDF dédié
+  (théorique / réel / écart), et surtout **modifier et supprimer
+  toujours possibles** — librement si le brouillon n'a pas encore été
+  validé, protégé par le code PIN et avec restitution automatique du
+  stock si l'inventaire était déjà validé
+- **Rapports** : la valeur du stock a été retirée du rapport Stock ;
+  un filtre **Mois + Année précis** s'ajoute aux périodes relatives
+  existantes ; l'onglet "Achats" devient "Conteneurs"
+- **Import/Export** : la colonne "Prix d'achat" a disparu du modèle
+  articles ; l'export "Achats" devient "Conteneurs"
+- **Présentation obligatoire** : elle s'affiche désormais dès la
+  première page visitée par un nouveau compte, quelle qu'elle soit —
+  et non plus seulement si l'utilisateur passe par le tableau de bord
+- **Temps réel (Supabase Realtime)** : activé sur les tables les plus
+  partagées (articles, stocks, conteneurs, ventes, paiements,
+  caisse, inventaires, historique...). Concrètement : si un collègue
+  valide une vente pendant que vous regardez le tableau de bord ou la
+  page Stock, les chiffres se mettent à jour tout seuls, sans recharger
+- **Historique** : les suppressions protégées par le code PIN
+  (paiements, retours, inventaires) et la suppression d'un article sont
+  désormais journalisées, comme n'importe quelle autre action sensible
+
+### Procédure
+
+1. Dézippez ce zip par-dessus votre dossier de travail
+2. GitHub Desktop → commit (`Conteneurs étape 4-B`) → Push
+3. **Action Supabase requise** : exécutez dans l'ordre `0020_inventaire_realtime.sql`
+   puis `0021_journalisation_suppressions.sql` dans le SQL Editor
+
+### À tester
+
+1. **Caisse > Solde** : ajoutez une recette et une dépense manuelles,
+   vérifiez le livre de caisse et exportez-le en Excel
+2. **Tiers** : basculez entre Clients et Fournisseurs sur la même page
+3. **Stock** : parcourez les 3 onglets, testez les 3 boutons
+   (Mouvements, Alerte, Conteneur)
+4. **Inventaire** : créez-en un avec une date différente d'aujourd'hui,
+   exportez-le en PDF, testez la suppression d'un brouillon puis d'un
+   inventaire validé (le code PIN doit être demandé)
+5. **Rapports > Stock** : vérifiez l'absence de la colonne Valeur ;
+   testez le filtre Mois/Année sur Ventes ou Caisse
+6. **Temps réel** : ouvrez l'application dans deux onglets ou deux
+   appareils différents, connectés avec deux comptes. Faites une vente
+   sur l'un, vérifiez que le tableau de bord de l'autre se met à jour
+   sans recharger la page
+7. **Nouveau compte** : inscrivez un compte de test, vérifiez que la
+   présentation s'affiche immédiatement quelle que soit la première
+   page visitée, et qu'il est impossible de la fermer sans cliquer sur
+   "Commencer"
+8. **Historique** : supprimez un paiement ou un retour (code PIN),
+   vérifiez que l'action apparaît bien dans Historique
+
+### Point de vigilance
+
+Si le temps réel ne semble pas fonctionner après avoir exécuté les
+migrations, vérifiez dans Supabase que la réplication est bien active :
+**Database > Replication**, la publication `supabase_realtime` doit
+lister les tables concernées (c'est normalement automatique après avoir
+exécuté `0020_inventaire_realtime.sql`, mais certains projets Supabase
+désactivent Realtime par défaut au niveau du projet — dans ce cas,
+activez-le dans **Settings > API > Realtime**).
+
+---
+
+## CONTENEURS — ÉTAPE 5/5 : COHÉRENCE GLOBALE (chantier terminé)
+
+Dernière étape du chantier "conteneurs" démarré il y a quelques
+livraisons : une relecture complète et méthodique du projet, page par
+page, pour traquer tout ce que les étapes précédentes auraient pu
+laisser incohérent — pas une nouvelle fonctionnalité, mais un vrai
+passage de nettoyage.
+
+### Ce qui a été trouvé et corrigé
+
+- **Tableau de bord** : la carte "Solde caisse (période)" traînait
+  encore alors qu'elle ne fait pas partie des 6 indicateurs que vous
+  aviez validés (CA, valeur du stock, créances, dettes, encaissements,
+  décaissements) — retirée, grille réorganisée
+- **Un vrai bug d'utilisabilité** : depuis la fusion des Tiers, la page
+  "Dettes fournisseurs" (paiements de conteneurs) n'était plus reliée
+  nulle part dans le menu — impossible d'y accéder autrement qu'en
+  ouvrant un conteneur précis. Remise en place sous **Tiers**, avec
+  deux sous-entrées : Annuaire et Dettes fournisseurs
+- **Import Excel articles** : la colonne "Prix d'achat" avait été
+  retirée du modèle téléchargeable, mais le code de validation et
+  d'insertion la lisait encore (sans bloquer les imports, mais de
+  façon incohérente) — entièrement nettoyé
+- **Textes obsolètes** : la présentation initiale et Paramètres >
+  Listes mentionnaient encore "Devis" et "achats" — corrigés pour
+  refléter l'application actuelle
+- **Ventes** : tout résidu du champ "prix d'achat" par article a été
+  retiré du code (sélection, formulaire, état) — la colonne technique
+  correspondante en base, obligatoire depuis l'ancien système, reste
+  remplie à 0 avec un commentaire expliquant pourquoi, plutôt que de
+  laisser croire qu'elle sert encore à quelque chose
+- **Page Transferts en doublon** : depuis l'ajout de la modale
+  "Mouvements" (Stock), l'ancienne page dédiée aux transferts faisait
+  doublon et n'était plus reliée au menu — supprimée
+- **Temps réel étendu** : Retours clients, Paiements de ventes et
+  Paiements de conteneurs se rafraîchissent désormais eux aussi
+  automatiquement ; la table `retours_clients`, oubliée de la première
+  liste, a été ajoutée à la publication temps réel
+
+### Procédure
+
+1. Dézippez ce zip par-dessus votre dossier de travail
+2. GitHub Desktop → commit (`Conteneurs étape 5/5 : cohérence
+   globale`) → Push
+3. **Action Supabase requise** : si vous n'avez pas encore exécuté
+   `0021_journalisation_suppressions.sql` de l'étape précédente,
+   faites-le — cette étape s'appuie dessus (ajout de la publication
+   temps réel sur `retours_clients`). Aucun nouveau fichier SQL pour
+   cette étape.
+
+### À tester
+
+1. **Tableau de bord** : vérifiez qu'il n'affiche plus que les 6
+   indicateurs validés, en deux rangées de 3
+2. **Tiers > Dettes fournisseurs** : vérifiez que la page est de
+   nouveau accessible depuis le menu
+3. **Import/Export** : téléchargez le modèle articles, vérifiez
+   l'absence de la colonne "Prix d'achat", testez un import complet
+4. **Stock** : vérifiez que le bouton "Mouvements" fonctionne toujours
+   normalement (la page dédiée aux transferts a été retirée, tout
+   passe maintenant par cette modale)
+5. Repassez rapidement sur les écrans du quotidien (Ventes, Paiements,
+   Retours, Conteneurs) pour confirmer que tout reste cohérent
+
+### Bilan honnête
+
+Cette relecture a porté sur l'ensemble du code visible et les parcours
+les plus utilisés. Elle n'a pas inclus de test en conditions réelles
+avec plusieurs comptes simultanés sur une longue durée — si vous
+repérez encore une incohérence en utilisant l'application au
+quotidien, dites-le-moi et je la corrige directement.

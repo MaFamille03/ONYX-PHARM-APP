@@ -1,22 +1,24 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { Plus, Search, Pencil, AlertTriangle, Clock } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, AlertTriangle, Clock } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { logSupabaseError } from "@/lib/errors";
 import {
   ArticleFormModal,
   EMPTY_ARTICLE_FORM,
   type ArticleFormValues,
 } from "@/components/articles/ArticleForm";
 import { useReferenceData } from "@/lib/hooks/useReferenceData";
+import { useRealtimeRefresh } from "@/lib/hooks/useRealtimeRefresh";
 import { StatutBadge } from "@/components/ui/Badges";
 import { PrimaryButton } from "@/components/ui/Buttons";
+import { PinModal } from "@/components/securite/PinModal";
 
 type ArticleRow = {
   id: string;
   designation: string;
   marque: string | null;
-  prix_achat: number;
   prix_vente_conseille: number;
   stock_minimum: number;
   numero_lot: string | null;
@@ -41,7 +43,7 @@ function joursAvantExpiration(date: string | null): number | null {
   return Math.ceil(diff);
 }
 
-export function ArticlesManager() {
+export function ArticlesManager({ embarque }: { embarque?: boolean } = {}) {
   const supabase = createClient();
   const { categories } = useReferenceData();
 
@@ -57,6 +59,7 @@ export function ArticlesManager() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingValues, setEditingValues] =
     useState<ArticleFormValues>(EMPTY_ARTICLE_FORM);
+  const [pinModalArticle, setPinModalArticle] = useState<ArticleRow | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -64,7 +67,7 @@ export function ArticlesManager() {
       supabase
         .from("articles")
         .select(
-          "id, designation, marque, prix_achat, prix_vente_conseille, stock_minimum, numero_lot, date_expiration, statut, categorie_id, sous_categorie_id, fournisseur_id, observations, categories(nom), fournisseurs(nom), stocks(quantite)"
+          "id, designation, marque, prix_vente_conseille, stock_minimum, numero_lot, date_expiration, statut, categorie_id, sous_categorie_id, fournisseur_id, observations, categories(nom), fournisseurs(nom), stocks(quantite)"
         )
         .order("designation"),
       supabase
@@ -86,6 +89,8 @@ export function ArticlesManager() {
     load();
   }, [load]);
 
+  useRealtimeRefresh(["articles", "stocks"], load);
+
   function openCreate() {
     setEditingValues(EMPTY_ARTICLE_FORM);
     setModalOpen(true);
@@ -100,7 +105,6 @@ export function ArticlesManager() {
       marque: article.marque ?? "",
       fournisseur_id: article.fournisseur_id ?? "",
       stock_minimum: String(article.stock_minimum),
-      prix_achat: String(article.prix_achat),
       prix_vente_conseille: String(article.prix_vente_conseille),
       numero_lot: article.numero_lot ?? "",
       date_expiration: article.date_expiration ?? "",
@@ -108,6 +112,31 @@ export function ArticlesManager() {
       observations: article.observations ?? "",
     });
     setModalOpen(true);
+  }
+
+  async function confirmerSuppression(pin: string) {
+    if (!pinModalArticle) return;
+    const ok = await supabase.rpc("verifier_pin_securite", { p_pin: pin });
+    if (ok.error || !ok.data) {
+      throw new Error("Code PIN incorrect.");
+    }
+    const { error } = await supabase
+      .from("articles")
+      .delete()
+      .eq("id", pinModalArticle.id);
+    if (error) {
+      const message =
+        error.code === "23503"
+          ? "Cet article est utilisé ailleurs (ventes, mouvements de stock...) et ne peut pas être supprimé."
+          : logSupabaseError(
+              { table: "articles", operation: "delete" },
+              error,
+              "Impossible de supprimer cet article. Réessayez."
+            );
+      throw new Error(message);
+    }
+    setPinModalArticle(null);
+    load();
   }
 
   const enrichis = useMemo(
@@ -146,9 +175,11 @@ export function ArticlesManager() {
     <div>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-onyx-900 sm:text-2xl">
-            Articles
-          </h1>
+          {!embarque && (
+            <h1 className="text-xl font-semibold text-onyx-900 sm:text-2xl">
+              Articles
+            </h1>
+          )}
           <p className="mt-1 text-sm text-onyx-500">
             {enrichis.length} article{enrichis.length > 1 ? "s" : ""}
             {enrichis.filter((a) => a.stockFaible).length > 0 && (
@@ -219,7 +250,7 @@ export function ArticlesManager() {
             {/* Vue cartes (mobile) */}
             <div className="grid grid-cols-1 gap-3 sm:hidden">
               {filtres.map((a) => (
-                <button
+                <div
                   key={a.id}
                   onClick={() => openEdit(a)}
                   className="rounded-xl border border-onyx-100 bg-white p-4 text-left active:bg-onyx-50"
@@ -234,7 +265,19 @@ export function ArticlesManager() {
                         {a.marque ? ` · ${a.marque}` : ""}
                       </p>
                     </div>
-                    <StatutBadge statut={a.statut} />
+                    <div className="flex items-center gap-1.5">
+                      <StatutBadge statut={a.statut} />
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setPinModalArticle(a);
+                        }}
+                        className="rounded-md p-1 text-red-400 hover:bg-red-50 hover:text-red-600"
+                        aria-label="Supprimer"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
                   </div>
                   <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
                     <span
@@ -258,7 +301,7 @@ export function ArticlesManager() {
                       </span>
                     )}
                   </div>
-                </button>
+                </div>
               ))}
             </div>
 
@@ -270,8 +313,7 @@ export function ArticlesManager() {
                     <th className="px-4 py-3">Désignation</th>
                     <th className="px-4 py-3">Catégorie</th>
                     <th className="px-4 py-3">Fournisseur</th>
-                    <th className="px-4 py-3 text-right">Prix achat</th>
-                    <th className="px-4 py-3 text-right">Prix vente</th>
+                    <th className="px-4 py-3 text-right">Prix vente référence</th>
                     <th className="px-4 py-3 text-right">Stock</th>
                     <th className="px-4 py-3">Statut</th>
                     <th className="px-4 py-3" />
@@ -298,9 +340,6 @@ export function ArticlesManager() {
                         {a.fournisseurs?.nom || "—"}
                       </td>
                       <td className="px-4 py-3 text-right text-onyx-600">
-                        {a.prix_achat.toLocaleString("fr-FR")}
-                      </td>
-                      <td className="px-4 py-3 text-right text-onyx-600">
                         {a.prix_vente_conseille.toLocaleString("fr-FR")}
                       </td>
                       <td className="px-4 py-3 text-right">
@@ -319,13 +358,24 @@ export function ArticlesManager() {
                         <StatutBadge statut={a.statut} />
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <button
-                          onClick={() => openEdit(a)}
-                          className="rounded-md p-1.5 text-onyx-400 hover:bg-onyx-100 hover:text-onyx-700"
-                          aria-label="Modifier"
-                        >
-                          <Pencil size={16} />
-                        </button>
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            onClick={() => openEdit(a)}
+                            className="rounded-md p-1.5 text-onyx-400 hover:bg-onyx-100 hover:text-onyx-700"
+                            aria-label="Modifier"
+                          >
+                            <Pencil size={16} />
+                          </button>
+                          <button
+                            onClick={() => {
+                              setPinModalArticle(a);
+                            }}
+                            className="rounded-md p-1.5 text-red-400 hover:bg-red-50 hover:text-red-600"
+                            aria-label="Supprimer"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -344,6 +394,15 @@ export function ArticlesManager() {
             setModalOpen(false);
             load();
           }}
+        />
+      )}
+
+      {pinModalArticle && (
+        <PinModal
+          title="Supprimer cet article"
+          message={`Supprimer définitivement "${pinModalArticle.designation}" ? Cette action est irréversible.`}
+          onCancel={() => setPinModalArticle(null)}
+          onConfirm={confirmerSuppression}
         />
       )}
     </div>
