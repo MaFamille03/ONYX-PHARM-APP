@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { Package2, Plus, ArrowLeft, Pencil, Trash2, Upload, FileSpreadsheet, CheckCircle2, AlertCircle, CreditCard } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { logSupabaseError } from "@/lib/errors";
-import { telechargerModeleExcel, lireFichierExcel } from "@/lib/excel";
+import { lireFichierExcel, exporterExcelMisEnForme } from "@/lib/excel";
 import { Modal } from "@/components/ui/Modal";
 import { SelectField } from "@/components/ui/FormControls";
 import { StatutBadge, InlineBanner } from "@/components/ui/Badges";
@@ -31,9 +31,7 @@ const COLONNES_MODELE = [
   "Sous-catégorie",
   "Marque",
   "Fournisseur",
-  "Stock minimum",
   "Prix de vente conseillé",
-  "Numéro de lot",
   "Date d'expiration",
   "Statut",
   "Observations",
@@ -265,21 +263,12 @@ export function NouveauConteneur({ onDone }: { onDone: () => void }) {
   }
 
   function telechargerModele() {
-    telechargerModeleExcel("modele-conteneur", COLONNES_MODELE, {
-      Désignation: "Tensiomètre électronique",
-      Catégorie: "Diagnostic",
-      "Sous-catégorie": "",
-      Marque: "",
-      Fournisseur: "",
-      "Stock minimum": 5,
-      "Prix de vente conseillé": 70000,
-      "Numéro de lot": "",
-      "Date d'expiration": "",
-      Statut: "Actif",
-      Observations: "",
-      Quantité: 10,
-      Emplacement: emplacementsActifs[0]?.nom ?? "Bureau",
-    });
+    exporterExcelMisEnForme(
+      "Modèle_Conteneur_Onyx_Pharm",
+      "Modèle",
+      COLONNES_MODELE,
+      []
+    );
   }
 
   function validerLignesImport(brutes: Record<string, unknown>[]): LigneImportee[] {

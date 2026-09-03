@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Plus, Trash2, ArrowLeftRight } from "lucide-react";
+import { Plus, Pencil, Trash2, ArrowLeftRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { logSupabaseError } from "@/lib/errors";
 import { Modal } from "@/components/ui/Modal";
@@ -41,6 +41,12 @@ export function RetoursClientsManager() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deleteRetour, setDeleteRetour] = useState<RetourRow | null>(null);
+
+  const [editRetour, setEditRetour] = useState<RetourRow | null>(null);
+  const [editMotif, setEditMotif] = useState("");
+  const [editMontantImpact, setEditMontantImpact] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -116,6 +122,40 @@ export function RetoursClientsManager() {
     load();
   }
 
+  function ouvrirEdition(r: RetourRow) {
+    setEditRetour(r);
+    setEditMotif(r.motif ?? "");
+    setEditMontantImpact(String(r.montant_impact ?? 0));
+    setEditError(null);
+  }
+
+  async function handleModifierRetour(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editRetour) return;
+    setEditSaving(true);
+    setEditError(null);
+    const { error } = await supabase
+      .from("retours_clients")
+      .update({
+        motif: editMotif.trim() || null,
+        montant_impact: Number(editMontantImpact) || 0,
+      })
+      .eq("id", editRetour.id);
+    setEditSaving(false);
+    if (error) {
+      setEditError(
+        logSupabaseError(
+          { table: "retours_clients", operation: "update" },
+          error,
+          "Impossible d'enregistrer les modifications. Réessayez."
+        )
+      );
+      return;
+    }
+    setEditRetour(null);
+    load();
+  }
+
   async function confirmerSuppressionRetour(pin: string) {
     if (!deleteRetour) return;
     const { error } = await supabase.rpc("supprimer_retour_client", {
@@ -178,6 +218,13 @@ export function RetoursClientsManager() {
                     <span className="text-xs text-onyx-400">
                       {new Date(r.created_at).toLocaleDateString("fr-FR")}
                     </span>
+                    <button
+                      onClick={() => ouvrirEdition(r)}
+                      className="rounded-md p-1 text-onyx-400 hover:bg-onyx-100 hover:text-onyx-700"
+                      aria-label="Modifier"
+                    >
+                      <Pencil size={14} />
+                    </button>
                     <button
                       onClick={() => setDeleteRetour(r)}
                       className="rounded-md p-1 text-red-400 hover:bg-red-50 hover:text-red-600"
@@ -294,6 +341,58 @@ export function RetoursClientsManager() {
           onCancel={() => setDeleteRetour(null)}
           onConfirm={confirmerSuppressionRetour}
         />
+      )}
+
+      {editRetour && (
+        <Modal title="Modifier le retour" onClose={() => setEditRetour(null)}>
+          <form onSubmit={handleModifierRetour} className="space-y-4">
+            {editError && <InlineBanner message={editError} />}
+            <p className="text-sm text-onyx-500">
+              {editRetour.articles?.designation} · {editRetour.quantite}{" "}
+              unité{editRetour.quantite > 1 ? "s" : ""}
+            </p>
+            <p className="text-xs text-onyx-400">
+              La quantité et l&apos;emplacement ne sont pas modifiables ici
+              (ils affectent le stock) — supprimez ce retour et recréez-en un
+              nouveau si besoin.
+            </p>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-onyx-700">
+                Motif
+              </label>
+              <input
+                value={editMotif}
+                onChange={(e) => setEditMotif(e.target.value)}
+                className="w-full rounded-lg border border-onyx-200 px-3.5 py-2.5 text-[15px] outline-none focus:border-accent-400 focus:ring-2 focus:ring-accent-100"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-onyx-700">
+                Impact financier (FCFA)
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={editMontantImpact}
+                onChange={(e) => setEditMontantImpact(e.target.value)}
+                className="w-full rounded-lg border border-onyx-200 px-3.5 py-2.5 text-[15px] outline-none focus:border-accent-400 focus:ring-2 focus:ring-accent-100"
+              />
+            </div>
+            <div className="flex gap-3 pt-2">
+              <SecondaryButton
+                type="button"
+                onClick={() => setEditRetour(null)}
+                className="flex-1"
+              >
+                Annuler
+              </SecondaryButton>
+              <PrimaryButton type="submit" loading={editSaving} className="flex-1">
+                Enregistrer
+              </PrimaryButton>
+            </div>
+          </form>
+        </Modal>
       )}
     </div>
   );

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Plus, Search, Pencil, Phone, Mail } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Phone, Mail } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { logSupabaseError } from "@/lib/errors";
 import { Modal } from "@/components/ui/Modal";
@@ -9,6 +9,7 @@ import { FormField } from "@/components/auth/FormField";
 import { TextareaField, SelectField } from "@/components/ui/FormControls";
 import { PrimaryButton, SecondaryButton } from "@/components/ui/Buttons";
 import { StatutBadge, InlineBanner } from "@/components/ui/Badges";
+import { PinModal } from "@/components/securite/PinModal";
 
 type Tier = {
   id: string;
@@ -50,6 +51,7 @@ export function TiersManager({
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [deleteItem, setDeleteItem] = useState<Tier | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -85,6 +87,28 @@ export function TiersManager({
     });
     setError(null);
     setModalOpen(true);
+  }
+
+  async function confirmerSuppression(pin: string) {
+    if (!deleteItem) return;
+    const ok = await supabase.rpc("verifier_pin_securite", { p_pin: pin });
+    if (ok.error || !ok.data) {
+      throw new Error("Code PIN incorrect.");
+    }
+    const { error } = await supabase.from(table).delete().eq("id", deleteItem.id);
+    if (error) {
+      throw new Error(
+        error.code === "23503"
+          ? `Ce ${titreSingulier} est utilisé ailleurs (ventes, conteneurs...) et ne peut pas être supprimé.`
+          : logSupabaseError(
+              { table, operation: "delete" },
+              error,
+              `Impossible de supprimer ce ${titreSingulier}. Réessayez.`
+            )
+      );
+    }
+    setDeleteItem(null);
+    load();
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -201,14 +225,26 @@ export function TiersManager({
             {/* Vue cartes (mobile) */}
             <div className="grid grid-cols-1 gap-3 sm:hidden">
               {filtered.map((item) => (
-                <button
+                <div
                   key={item.id}
                   onClick={() => openEdit(item)}
                   className="rounded-xl border border-onyx-100 bg-white p-4 text-left active:bg-onyx-50"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <p className="font-medium text-onyx-900">{item.nom}</p>
-                    <StatutBadge statut={item.statut} />
+                    <div className="flex items-center gap-1.5">
+                      <StatutBadge statut={item.statut} />
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleteItem(item);
+                        }}
+                        className="rounded-md p-1 text-red-400 hover:bg-red-50 hover:text-red-600"
+                        aria-label="Supprimer"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
                   </div>
                   <div className="mt-2 space-y-1 text-sm text-onyx-500">
                     {item.telephone && (
@@ -222,7 +258,7 @@ export function TiersManager({
                       </p>
                     )}
                   </div>
-                </button>
+                </div>
               ))}
             </div>
 
@@ -257,13 +293,22 @@ export function TiersManager({
                         <StatutBadge statut={item.statut} />
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <button
-                          onClick={() => openEdit(item)}
-                          className="rounded-md p-1.5 text-onyx-400 hover:bg-onyx-100 hover:text-onyx-700"
-                          aria-label="Modifier"
-                        >
-                          <Pencil size={16} />
-                        </button>
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            onClick={() => openEdit(item)}
+                            className="rounded-md p-1.5 text-onyx-400 hover:bg-onyx-100 hover:text-onyx-700"
+                            aria-label="Modifier"
+                          >
+                            <Pencil size={16} />
+                          </button>
+                          <button
+                            onClick={() => setDeleteItem(item)}
+                            className="rounded-md p-1.5 text-red-400 hover:bg-red-50 hover:text-red-600"
+                            aria-label="Supprimer"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -354,6 +399,15 @@ export function TiersManager({
             </div>
           </form>
         </Modal>
+      )}
+
+      {deleteItem && (
+        <PinModal
+          title={`Supprimer ce ${titreSingulier}`}
+          message={`Supprimer définitivement "${deleteItem.nom}" ? Cette action est irréversible.`}
+          onCancel={() => setDeleteItem(null)}
+          onConfirm={confirmerSuppression}
+        />
       )}
     </div>
   );

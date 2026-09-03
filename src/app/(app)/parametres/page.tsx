@@ -7,7 +7,6 @@ import {
   Tag,
   ListChecks,
   Warehouse,
-  AlertTriangle,
   ShieldCheck,
   UserCircle,
 } from "lucide-react";
@@ -16,7 +15,6 @@ import { EmplacementsSection } from "@/components/parametres/EmplacementsSection
 import { CategoriesSection } from "@/components/parametres/CategoriesSection";
 import { OptionsSection } from "@/components/parametres/OptionsSection";
 import { EntrepotSection } from "@/components/parametres/EntrepotSection";
-import { SeuilsSection } from "@/components/parametres/SeuilsSection";
 import { SecuriteSection } from "@/components/parametres/SecuriteSection";
 import { CompteSection } from "@/components/parametres/CompteSection";
 
@@ -26,7 +24,6 @@ const TABS = [
   { id: "categories", label: "Catégories", icon: Tag },
   { id: "listes", label: "Listes", icon: ListChecks },
   { id: "entrepot", label: "Entrepôt", icon: Warehouse },
-  { id: "seuils", label: "Seuils", icon: AlertTriangle },
   { id: "securite", label: "Sécurité", icon: ShieldCheck },
   { id: "compte", label: "Compte", icon: UserCircle },
 ] as const;
@@ -69,7 +66,6 @@ export default function ParametresPage() {
         {tab === "categories" && <CategoriesSection />}
         {tab === "listes" && <OptionsSection />}
         {tab === "entrepot" && <EntrepotSection />}
-        {tab === "seuils" && <SeuilsSection />}
         {tab === "securite" && <SecuriteSection />}
         {tab === "compte" && <CompteSection />}
       </div>

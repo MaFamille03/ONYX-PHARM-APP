@@ -138,79 +138,104 @@ export function StocksManager({ embarque }: { embarque?: boolean } = {}) {
       data: { user },
     } = await supabase.auth.getUser();
 
-    const stockInitialId = await getStockInitialId(supabase);
-    if (!stockInitialId) {
-      setError(
-        "Conteneur « Stock Initial » introuvable. Exécutez la migration 0015 dans Supabase."
+    if (delta < 0) {
+      // Diminution : consomme en FIFO à travers TOUS les conteneurs
+      // concernés (et non plus uniquement Stock Initial) — un article
+      // peut désormais avoir du stock réparti sur plusieurs conteneurs.
+      const { data: repartition, error: fifoError } = await supabase.rpc(
+        "consommer_stock_fifo",
+        {
+          p_article_id: ajustement.articleId,
+          p_emplacement_id: ajustement.emplacementId,
+          p_quantite: -delta,
+          p_conteneur_id: null,
+        }
       );
-      setSaving(false);
-      return;
-    }
 
-    // Le stock peut désormais provenir de plusieurs conteneurs : la
-    // correction manuelle s'applique toujours au conteneur "Stock Initial"
-    // (les autres conteneurs, à venir dès l'étape 2, ne sont pas touchés).
-    const { data: ligneInitiale } = await supabase
-      .from("stocks")
-      .select("quantite")
-      .eq("article_id", ajustement.articleId)
-      .eq("emplacement_id", ajustement.emplacementId)
-      .eq("conteneur_id", stockInitialId)
-      .maybeSingle();
+      if (fifoError) {
+        setError(
+          logSupabaseError(
+            { table: "stocks", operation: "rpc consommer_stock_fifo" },
+            fifoError,
+            "Impossible de corriger le stock. Réessayez."
+          )
+        );
+        setSaving(false);
+        return;
+      }
 
-    const quantiteInitialeActuelle = ligneInitiale?.quantite ?? 0;
-    const nouvelleQuantiteInitiale = quantiteInitialeActuelle + delta;
+      for (const part of repartition ?? []) {
+        const { error: mouvementError } = await supabase
+          .from("mouvements_stock")
+          .insert({
+            article_id: ajustement.articleId,
+            emplacement_id: ajustement.emplacementId,
+            type: "autre_sortie",
+            quantite: -part.quantite,
+            document_type: "ajustement_manuel",
+            observation: motif.trim() || "Correction manuelle de stock",
+            created_by: user?.id ?? null,
+          });
+        if (mouvementError) {
+          logSupabaseError(
+            { table: "mouvements_stock", operation: "insert" },
+            mouvementError,
+            ""
+          );
+        }
+      }
+    } else {
+      // Augmentation : sans conteneur précis à indiquer, la quantité
+      // ajoutée est rattachée au conteneur "Stock Initial".
+      const stockInitialId = await getStockInitialId(supabase);
+      if (!stockInitialId) {
+        setError(
+          "Conteneur « Stock Initial » introuvable. Exécutez la migration 0015 dans Supabase."
+        );
+        setSaving(false);
+        return;
+      }
 
-    if (nouvelleQuantiteInitiale < 0) {
-      setError(
-        "Cette correction ferait passer le stock du conteneur Stock Initial en dessous de zéro."
+      const { error: upsertError } = await supabase.from("stocks").upsert(
+        {
+          article_id: ajustement.articleId,
+          emplacement_id: ajustement.emplacementId,
+          conteneur_id: stockInitialId,
+          quantite: delta,
+        },
+        { onConflict: "article_id,emplacement_id,conteneur_id" }
       );
-      setSaving(false);
-      return;
-    }
 
-    const { error: upsertError } = await supabase.from("stocks").upsert(
-      {
-        article_id: ajustement.articleId,
-        emplacement_id: ajustement.emplacementId,
-        conteneur_id: stockInitialId,
-        quantite: nouvelleQuantiteInitiale,
-      },
-      { onConflict: "article_id,emplacement_id,conteneur_id" }
-    );
+      if (upsertError) {
+        setError(
+          logSupabaseError(
+            { table: "stocks", operation: "upsert" },
+            upsertError,
+            "Impossible de mettre à jour le stock. Réessayez."
+          )
+        );
+        setSaving(false);
+        return;
+      }
 
-    if (upsertError) {
-      setError(
-        logSupabaseError(
-          { table: "stocks", operation: "upsert" },
-          upsertError,
-          "Impossible de mettre à jour le stock. Vérifiez les informations saisies ou réessayez."
-        )
-      );
-      setSaving(false);
-      return;
-    }
-
-    const { error: mouvementError } = await supabase.from("mouvements_stock").insert({
-      article_id: ajustement.articleId,
-      emplacement_id: ajustement.emplacementId,
-      type: delta > 0 ? "autre_entree" : "autre_sortie",
-      quantite: delta,
-      document_type: "ajustement_manuel",
-      observation: motif.trim() || "Correction manuelle de stock",
-      created_by: user?.id ?? null,
-    });
-
-    if (mouvementError) {
-      setError(
+      const { error: mouvementError } = await supabase
+        .from("mouvements_stock")
+        .insert({
+          article_id: ajustement.articleId,
+          emplacement_id: ajustement.emplacementId,
+          type: "autre_entree",
+          quantite: delta,
+          document_type: "ajustement_manuel",
+          observation: motif.trim() || "Correction manuelle de stock",
+          created_by: user?.id ?? null,
+        });
+      if (mouvementError) {
         logSupabaseError(
           { table: "mouvements_stock", operation: "insert" },
           mouvementError,
-          "Le stock a été mis à jour, mais le mouvement n'a pas pu être enregistré."
-        )
-      );
-      setSaving(false);
-      return;
+          ""
+        );
+      }
     }
 
     setSaving(false);

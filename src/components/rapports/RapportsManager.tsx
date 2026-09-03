@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { Download, Package, ShoppingCart, Truck, Wallet, Users } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { exporterExcel } from "@/lib/excel";
+import { exporterExcel, exporterExcelMisEnForme } from "@/lib/excel";
 import { PrimaryButton } from "@/components/ui/Buttons";
 import { useReferenceData } from "@/lib/hooks/useReferenceData";
 
@@ -222,24 +222,32 @@ function RapportStock() {
     load();
   }, [load]);
 
-  function exporter() {
-    exporterExcel("rapport-stock", [
-      {
-        nom: "Stock",
-        lignes: lignes.map((l) => {
-          const row: Record<string, unknown> = {
-            Désignation: l.designation,
-            Catégorie: l.categorie,
-          };
-          for (const e of emplacementsActifs) {
-            row[e.nom] = l.parEmplacement[e.id] ?? 0;
-          }
-          row["Total"] = l.total;
-          row["Stock minimum"] = l.stockMinimum;
-          return row;
-        }),
-      },
-    ]);
+  async function exporter() {
+    const colonnes = [
+      "Désignation",
+      "Catégorie",
+      ...emplacementsActifs.map((e) => e.nom),
+      "Total",
+      "Stock minimum",
+    ];
+    const lignesExport = lignes.map((l) => {
+      const row: Record<string, unknown> = {
+        Désignation: l.designation,
+        Catégorie: l.categorie,
+      };
+      for (const e of emplacementsActifs) {
+        row[e.nom] = l.parEmplacement[e.id] ?? 0;
+      }
+      row["Total"] = l.total;
+      row["Stock minimum"] = l.stockMinimum;
+      return row;
+    });
+    await exporterExcelMisEnForme(
+      "Rapport_Stock_Onyx_Pharm",
+      "Stock",
+      colonnes,
+      lignesExport
+    );
   }
 
   return (

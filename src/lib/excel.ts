@@ -1,4 +1,73 @@
 import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
+
+/**
+ * Export Excel avec mise en forme réelle (police Arial Narrow 12, colonnes
+ * alignées et justifiées, largeurs ajustées). Utilise exceljs, seule
+ * bibliothèque du projet capable d'écrire un style qui persiste
+ * réellement dans le fichier — contrairement à la bibliothèque "xlsx"
+ * utilisée pour les exports simples ci-dessous.
+ */
+export async function exporterExcelMisEnForme(
+  nomFichier: string,
+  nomFeuille: string,
+  colonnes: string[],
+  lignes: Record<string, unknown>[]
+) {
+  const classeur = new ExcelJS.Workbook();
+  const feuille = classeur.addWorksheet(nomFeuille.slice(0, 31));
+
+  feuille.columns = colonnes.map((c) => ({
+    header: c,
+    key: c,
+    width: Math.min(Math.max(c.length + 4, 14), 40),
+  }));
+
+  const ligneEntete = feuille.getRow(1);
+  ligneEntete.eachCell((cell) => {
+    cell.font = { name: "Arial Narrow", size: 12, bold: true };
+    cell.alignment = {
+      horizontal: "center",
+      vertical: "middle",
+      wrapText: true,
+    };
+    cell.border = {
+      top: { style: "thin" },
+      bottom: { style: "thin" },
+      left: { style: "thin" },
+      right: { style: "thin" },
+    };
+  });
+
+  for (const ligne of lignes) {
+    const row = feuille.addRow(ligne);
+    row.eachCell({ includeEmpty: true }, (cell) => {
+      cell.font = { name: "Arial Narrow", size: 12 };
+      cell.alignment = {
+        horizontal: "center",
+        vertical: "middle",
+        wrapText: true,
+      };
+      cell.border = {
+        top: { style: "thin" },
+        bottom: { style: "thin" },
+        left: { style: "thin" },
+        right: { style: "thin" },
+      };
+    });
+  }
+
+  const buffer = await classeur.xlsx.writeBuffer();
+  const blob = new Blob([buffer], {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${nomFichier}.xlsx`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 export function exporterExcel(
   nomFichier: string,
