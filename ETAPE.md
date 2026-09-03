@@ -60,13 +60,13 @@ vente libéré du prix d'achat, Paramètres > Seuils, date de conception du
 site, code PIN pour les suppressions sensibles (Articles, Paiements,
 Retours), et modification/suppression des brouillons de vente.
 
-## Étape actuelle : « Conteneurs — étape 5/5 : cohérence globale » (livrée)
+## Étape actuelle : « Correctifs post-chantier conteneurs » (livrée)
 
-Dernière étape du chantier conteneurs : relecture complète du projet à
-la recherche d'incohérences laissées par les étapes précédentes
-(textes obsolètes, pages orphelines, calculs utilisant des champs
-décommissionnés), et correction de chacune. Le chantier "conteneurs"
-initié en 5 étapes est maintenant terminé.
+Suite à ton retour terrain, correction de plusieurs vrais problèmes :
+le bouton "Conteneur" de la page Stock qui semblait ne rien faire
+(il ouvrait bien un formulaire, mais invisible en bas de page),
+l'absence de Modifier/Supprimer sur un conteneur, et clarification du
+fonctionnement du code PIN.
 
 ## Comment mettre à jour votre dossier de travail à chaque étape
 

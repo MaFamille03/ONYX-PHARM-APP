@@ -71,6 +71,7 @@ Si un script affiche une erreur en rouge :
 | `0019_pin_securite_paiements.sql` | Code PIN à 4 chiffres, cohérence paiement ↔ caisse, suppression sécurisée des brouillons/paiements/retours |
 | `0020_inventaire_realtime.sql` | Date d'inventaire, suppression sécurisée d'un inventaire, **activation du temps réel (Supabase Realtime)** |
 | `0021_journalisation_suppressions.sql` | Journalisation dans l'Historique de toutes les suppressions sensibles (articles, paiements, retours, inventaires) |
+| `0022_modifier_supprimer_conteneur.sql` | Modifier un conteneur (code, fournisseur, date, montant, observation) et le supprimer (protégé par PIN, refusé s'il reste du stock ou s'il a déjà servi à une vente) |
 
 Il n'y a pas de nouveau fichier SQL pour l'étape 10 : elle s'appuie
 entièrement sur les tables et vues déjà créées.

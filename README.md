@@ -1179,3 +1179,74 @@ les plus utilisés. Elle n'a pas inclus de test en conditions réelles
 avec plusieurs comptes simultanés sur une longue durée — si vous
 repérez encore une incohérence en utilisant l'application au
 quotidien, dites-le-moi et je la corrige directement.
+
+---
+
+## CORRECTIFS — Conteneur (Stock), Modifier/Supprimer, code PIN
+
+### Ce qui a été corrigé
+
+- **Le bouton "Conteneur" dans Stock** semblait ne rien faire au clic —
+  en réalité le formulaire s'ouvrait bien, mais s'ajoutait
+  silencieusement tout en bas de la page au lieu de s'afficher en
+  fenêtre superposée. Corrigé : il s'affiche maintenant clairement
+  au-dessus du reste, comme les autres formulaires de l'application.
+- **Modifier et Supprimer un conteneur** — n'existaient pas du tout
+  jusqu'ici, uniquement le paiement. Ajoutés dans le détail d'un
+  conteneur (clic depuis Stock > Conteneurs) :
+  - **Modifier** : code, fournisseur, date, montant d'achat, observation
+    — jamais le stock ni les paiements déjà enregistrés
+  - **Supprimer** : protégé par le code PIN. Refusé automatiquement
+    tant qu'il reste du stock dans ce conteneur, et refusé aussi s'il a
+    déjà servi à une vente (pour ne jamais perdre l'historique) — avec
+    un message clair dans chaque cas
+
+### Sur le code PIN — une clarification importante
+
+**Je n'ai jamais choisi de mot de passe ou de code à ta place.** Le
+code PIN à 4 chiffres est à définir **par toi-même**, une seule fois,
+dans **Paramètres > Sécurité**. Tant qu'il n'a jamais été défini,
+aucune suppression protégée ne peut fonctionner nulle part dans
+l'application — c'est normal, pas un bug.
+
+**Si tu as essayé de le définir et que tu as vu un message "Impossible
+de définir le code..."**, la cause la plus probable est que les
+migrations SQL des étapes précédentes (`0019`, `0020`, `0021`) n'ont
+pas encore été exécutées dans Supabase — sans elles, la fonction qui
+enregistre le code n'existe tout simplement pas côté base de données.
+Vérifie dans Supabase (SQL Editor → historique des requêtes) si ces
+trois fichiers ont bien été lancés ; sinon, exécute-les dans l'ordre
+maintenant, puis réessaie de définir ton code.
+
+### Sur les Ventes — pour être précis
+
+Modifier et Supprimer fonctionnent aujourd'hui **uniquement sur les
+brouillons** (avant validation) — c'est volontaire, car une vente
+validée a déjà touché le stock et potentiellement la caisse. Une vente
+validée dispose d'"Annuler la vente" (protégée par le second mot de
+passe, qui restitue le stock), pas d'une suppression directe. Si tu
+constates que même un brouillon ne se supprime pas, c'est très
+probablement la même cause que ci-dessus (migration 0019 non exécutée,
+puisque `supprimer_vente_brouillon` en dépend) — dis-le-moi si le
+problème persiste une fois les migrations à jour, je regarderai plus
+précisément.
+
+### Procédure
+
+1. Dézippez ce zip par-dessus votre dossier de travail
+2. GitHub Desktop → commit (`Correctifs conteneur, PIN, modifier/
+   supprimer`) → Push
+3. **Action Supabase requise** : exécutez `0022_modifier_supprimer_conteneur.sql`.
+   Si vous avez un doute sur les migrations précédentes, vérifiez aussi
+   que `0019`, `0020` et `0021` ont bien été exécutées (voir ci-dessus)
+
+### À tester
+
+1. **Paramètres > Sécurité** : définissez votre code PIN si ce n'est
+   pas déjà fait — vérifiez qu'aucun message d'erreur n'apparaît
+2. **Stock > bouton "Conteneur"** : vérifiez que le formulaire
+   s'affiche bien immédiatement, en fenêtre superposée
+3. **Stock > Conteneurs > cliquez sur un conteneur** : testez
+   "Modifier" (changez l'observation par exemple), puis "Supprimer"
+   sur un conteneur vide de test (le code PIN doit être demandé)
+4. **Ventes** : ouvrez un brouillon, testez Modifier et Supprimer

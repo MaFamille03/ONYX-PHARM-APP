@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Package2, Plus, ArrowLeft, Trash2, Upload, FileSpreadsheet, CheckCircle2, AlertCircle, CreditCard } from "lucide-react";
+import { Package2, Plus, ArrowLeft, Pencil, Trash2, Upload, FileSpreadsheet, CheckCircle2, AlertCircle, CreditCard } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { logSupabaseError } from "@/lib/errors";
 import { telechargerModeleExcel, lireFichierExcel } from "@/lib/excel";
@@ -9,6 +9,7 @@ import { Modal } from "@/components/ui/Modal";
 import { SelectField } from "@/components/ui/FormControls";
 import { StatutBadge, InlineBanner } from "@/components/ui/Badges";
 import { PrimaryButton, SecondaryButton } from "@/components/ui/Buttons";
+import { PinModal } from "@/components/securite/PinModal";
 import { FournisseurSelect } from "@/components/tiers/FournisseurSelect";
 import { useReferenceData } from "@/lib/hooks/useReferenceData";
 import { useRealtimeRefresh } from "@/lib/hooks/useRealtimeRefresh";
@@ -788,6 +789,17 @@ function ConteneurDetail({
   const [montantPaiement, setMontantPaiement] = useState("");
   const [modePaiement, setModePaiement] = useState("Espèces");
 
+  const [editionOuverte, setEditionOuverte] = useState(false);
+  const [editCode, setEditCode] = useState("");
+  const [editFournisseurId, setEditFournisseurId] = useState("");
+  const [editDate, setEditDate] = useState("");
+  const [editMontant, setEditMontant] = useState("");
+  const [editObservation, setEditObservation] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+
+  const [suppressionOuverte, setSuppressionOuverte] = useState(false);
+
   const load = useCallback(async () => {
     setLoading(true);
     const [conteneurRes, lignesRes, paiementsRes, coutRevientRes] = await Promise.all([
@@ -871,6 +883,74 @@ function ConteneurDetail({
     load();
   }
 
+  function ouvrirEdition() {
+    if (!conteneur) return;
+    setEditCode(conteneur.code);
+    setEditFournisseurId(conteneur.fournisseur_id ?? "");
+    setEditDate(conteneur.date_arrivee);
+    setEditMontant(
+      conteneur.montant_achat_global !== null
+        ? String(conteneur.montant_achat_global)
+        : ""
+    );
+    setEditObservation(conteneur.observation ?? "");
+    setEditError(null);
+    setEditionOuverte(true);
+  }
+
+  async function handleModifier(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editCode.trim()) {
+      setEditError("Le code du conteneur est obligatoire.");
+      return;
+    }
+    setEditSaving(true);
+    setEditError(null);
+
+    const { error } = await supabase.rpc("modifier_conteneur", {
+      p_conteneur_id: conteneurId,
+      p_code: editCode.trim(),
+      p_fournisseur_id: editFournisseurId || null,
+      p_date_arrivee: editDate,
+      p_montant_achat_global: editMontant.trim() ? Number(editMontant) : null,
+      p_observation: editObservation.trim() || null,
+    });
+
+    setEditSaving(false);
+    if (error) {
+      setEditError(
+        logSupabaseError(
+          { table: "conteneurs", operation: "rpc modifier_conteneur" },
+          error,
+          error.code === "23505"
+            ? "Ce code de conteneur existe déjà."
+            : "Impossible d'enregistrer les modifications."
+        )
+      );
+      return;
+    }
+    setEditionOuverte(false);
+    load();
+  }
+
+  async function confirmerSuppressionConteneur(pin: string) {
+    const { error } = await supabase.rpc("supprimer_conteneur", {
+      p_conteneur_id: conteneurId,
+      p_pin: pin,
+    });
+    if (error) {
+      throw new Error(
+        logSupabaseError(
+          { table: "conteneurs", operation: "rpc supprimer_conteneur" },
+          error,
+          "Impossible de supprimer ce conteneur."
+        )
+      );
+    }
+    setSuppressionOuverte(false);
+    onBack();
+  }
+
   if (loading || !conteneur) {
     return <p className="py-10 text-center text-sm text-onyx-400">Chargement...</p>;
   }
@@ -900,7 +980,23 @@ function ConteneurDetail({
           </p>
         </div>
 
-        {montantDefini && reste > 0 && (
+        <div className="flex gap-2">
+          <SecondaryButton onClick={ouvrirEdition}>
+            <Pencil size={16} />
+            Modifier
+          </SecondaryButton>
+          <SecondaryButton
+            onClick={() => setSuppressionOuverte(true)}
+            className="border-red-200 text-red-600 hover:bg-red-50"
+          >
+            <Trash2 size={16} />
+            Supprimer
+          </SecondaryButton>
+        </div>
+      </div>
+
+      {montantDefini && reste > 0 && (
+        <div className="mt-3">
           <PrimaryButton
             onClick={() => {
               setMontantPaiement(String(reste));
@@ -911,8 +1007,8 @@ function ConteneurDetail({
             <CreditCard size={16} />
             Enregistrer un paiement
           </PrimaryButton>
-        )}
-      </div>
+        </div>
+      )}
 
       {error && (
         <div className="mt-3">
@@ -1094,6 +1190,87 @@ function ConteneurDetail({
             </div>
           </form>
         </Modal>
+      )}
+
+      {editionOuverte && (
+        <Modal title="Modifier le conteneur" onClose={() => setEditionOuverte(false)}>
+          <form onSubmit={handleModifier} className="space-y-4">
+            {editError && <InlineBanner message={editError} />}
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-onyx-700">
+                Code du conteneur
+              </label>
+              <input
+                value={editCode}
+                onChange={(e) => setEditCode(e.target.value)}
+                required
+                className="w-full rounded-lg border border-onyx-200 px-3.5 py-2.5 text-[15px] outline-none focus:border-accent-400 focus:ring-2 focus:ring-accent-100"
+              />
+            </div>
+            <FournisseurSelect value={editFournisseurId} onChange={setEditFournisseurId} />
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-onyx-700">
+                Date d&apos;arrivée
+              </label>
+              <input
+                type="date"
+                required
+                value={editDate}
+                onChange={(e) => setEditDate(e.target.value)}
+                className="w-full rounded-lg border border-onyx-200 px-3.5 py-2.5 text-[15px] outline-none focus:border-accent-400 focus:ring-2 focus:ring-accent-100"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-onyx-700">
+                Montant d&apos;achat global (FCFA) — optionnel
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={editMontant}
+                onChange={(e) => setEditMontant(e.target.value)}
+                placeholder="Laissez vide si non renseigné"
+                className="w-full rounded-lg border border-onyx-200 px-3.5 py-2.5 text-[15px] outline-none focus:border-accent-400 focus:ring-2 focus:ring-accent-100"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-onyx-700">
+                Observation
+              </label>
+              <input
+                value={editObservation}
+                onChange={(e) => setEditObservation(e.target.value)}
+                className="w-full rounded-lg border border-onyx-200 px-3.5 py-2.5 text-[15px] outline-none focus:border-accent-400 focus:ring-2 focus:ring-accent-100"
+              />
+            </div>
+            <div className="flex gap-3 pt-2">
+              <SecondaryButton
+                type="button"
+                onClick={() => setEditionOuverte(false)}
+                className="flex-1"
+              >
+                Annuler
+              </SecondaryButton>
+              <PrimaryButton type="submit" loading={editSaving} className="flex-1">
+                Enregistrer
+              </PrimaryButton>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {suppressionOuverte && (
+        <PinModal
+          title="Supprimer ce conteneur"
+          message={
+            (coutRevient?.stock_restant ?? 0) > 0
+              ? `Ce conteneur contient encore ${coutRevient?.stock_restant} unité(s) en stock : la suppression sera refusée tant qu'il n'est pas entièrement écoulé ou transféré.`
+              : `Supprimer définitivement le conteneur "${conteneur.code}" ? Refusé automatiquement si des ventes y font déjà référence.`
+          }
+          onCancel={() => setSuppressionOuverte(false)}
+          onConfirm={confirmerSuppressionConteneur}
+        />
       )}
     </div>
   );

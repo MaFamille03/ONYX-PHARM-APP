@@ -73,7 +73,11 @@ export function StockUnifieManager() {
       )}
       {alerteOuverte && <AlerteModal onClose={() => setAlerteOuverte(false)} />}
       {conteneurOuvert && (
-        <NouveauConteneur onDone={() => setConteneurOuvert(false)} />
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-onyx-950/60 p-4">
+          <div className="mx-auto max-w-3xl rounded-2xl bg-white p-5 shadow-xl sm:p-7">
+            <NouveauConteneur onDone={() => setConteneurOuvert(false)} />
+          </div>
+        </div>
       )}
     </div>
   );
